@@ -1,14 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  collectArtificialAnalysisModels,
-  collectResetHistory,
-  parseArtificialAnalysisModels,
-  parseResetHistory,
-} from "../src/collectors/external.mjs";
+import { collectResetHistory, parseResetHistory } from "../src/collectors/external.mjs";
 import { CodexInspector } from "../src/inspector.mjs";
 import { buildResetCalendar } from "../src/reset-calendar.mjs";
-import { childEnvironment, TtlCache } from "../src/utils.mjs";
+import { TtlCache } from "../src/utils.mjs";
 
 function jsonResponse(value, init = {}) {
   return new Response(JSON.stringify(value), {
@@ -17,25 +12,6 @@ function jsonResponse(value, init = {}) {
     headers: { "Content-Type": "application/json", ...(init.headers || {}) },
   });
 }
-
-const MODEL_FIXTURE = {
-  id: "model-codex",
-  name: "GPT-5.3 Codex (xhigh)",
-  slug: "gpt-5-3-codex",
-  model_creator: { id: "openai", name: "OpenAI" },
-  evaluations: {
-    artificial_analysis_coding_index: 71.2,
-    artificial_analysis_intelligence_index: 68.4,
-    artificial_analysis_agentic_index: 66.1,
-  },
-  artificial_analysis_intelligence_index_cost: { cost_per_task: { total_cost: 3.14 } },
-  pricing: { price_1m_input_tokens: 2, price_1m_output_tokens: 8 },
-  performance: {
-    median_output_tokens_per_second: 94.2,
-    median_time_to_first_token_seconds: 1.8,
-    median_end_to_end_response_time_seconds: 48.5,
-  },
-};
 
 test("reset history keeps string IDs, validates sources, and respects the requested window", () => {
   const from = "2026-07-21T00:00:00.000Z";
@@ -107,22 +83,17 @@ test("external text strips Unicode direction controls", () => {
       source: { url: "https://x.com/thsottiaux/status/1956789012345678901" },
     }],
   }, { from: "2026-08-01T00:00:00Z", to: "2026-08-20T00:00:00Z" });
-  const models = parseArtificialAnalysisModels({
-    data: [{ ...MODEL_FIXTURE, name: "GPT-5.3 \u202eCodex\u2069 (high)" }],
-  });
 
   assert.equal(reset.items[0].text, "Reset reversed label");
-  assert.equal(models.models[0].name, "GPT-5.3 Codex (high)");
-  assert.doesNotMatch(JSON.stringify({ reset, models }), /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u);
+  assert.doesNotMatch(JSON.stringify(reset), /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u);
 });
 
-test("reset collector sends a bounded 30-day query to the fixed provider", async () => {
+test("reset collector sends a bounded 30-day query to the fixed public provider", async () => {
   let observedUrl;
   const fetchImpl = async (url, options) => {
     observedUrl = new URL(url);
     assert.equal(options.method, "GET");
-    assert.equal(options.headers.Accept, "application/json");
-    assert.equal(options.headers["x-api-key"], undefined);
+    assert.deepEqual(options.headers, { Accept: "application/json" });
     return jsonResponse({ data: [], pagination: { has_more: false, next_cursor: null }, meta: { generated_at: "2026-08-20T00:00:00Z" } });
   };
 
@@ -197,199 +168,27 @@ test("reset collector bounds aggregate response bytes and item count", async () 
   assert.equal(byteLimited.limited, true);
 });
 
-test("Artificial Analysis parser exposes only benchmarked OpenAI Codex metrics", () => {
-  const codexFamilies = [
-    MODEL_FIXTURE,
-    { ...MODEL_FIXTURE, id: "sol", name: "GPT-5.6 Sol (high)", slug: "gpt-5-6-sol-high", evaluations: { artificial_analysis_coding_index: 70 } },
-    { ...MODEL_FIXTURE, id: "terra", name: "GPT-5.6 Terra (max)", slug: "gpt-5-6-terra-max", evaluations: { artificial_analysis_coding_index: 69 } },
-    { ...MODEL_FIXTURE, id: "luna", name: "GPT-5.6 Luna (xhigh)", slug: "gpt-5-6-luna-xhigh", evaluations: { artificial_analysis_coding_index: 68 } },
-  ];
-  const result = parseArtificialAnalysisModels({
-    intelligence_index_version: 4.1,
-    data: [
-      ...codexFamilies,
-      { ...MODEL_FIXTURE, id: "other", name: "Claude", slug: "claude", model_creator: { name: "Anthropic" } },
-      { ...MODEL_FIXTURE, id: "plain-openai", name: "GPT-5.4", slug: "gpt-5-4" },
-    ],
-  });
-
-  assert.equal(result.count, 4);
-  assert.equal(result.intelligenceIndexVersion, 4.1);
-  assert.deepEqual(new Set(result.models.map((model) => model.id)), new Set(["model-codex", "sol", "terra", "luna"]));
-  assert.deepEqual(result.models[0], {
-    id: "model-codex",
-    name: "GPT-5.3 Codex (xhigh)",
-    slug: "gpt-5-3-codex",
-    codingIndex: 71.2,
-    intelligenceIndex: 68.4,
-    agenticIndex: 66.1,
-    costPerTask: 3.14,
-    blendedPricePerMillion: null,
-    inputPricePerMillion: 2,
-    outputPricePerMillion: 8,
-    outputTokensPerSecond: 94.2,
-    timeToFirstTokenSeconds: 1.8,
-    endToEndSeconds: 48.5,
-  });
-});
-
-test("Artificial Analysis stays disabled without a key and uses the current free endpoint with one", async () => {
-  let calls = 0;
-  const disabled = await collectArtificialAnalysisModels({ fetchImpl: async () => { calls += 1; } });
-  assert.equal(disabled.configured, false);
-  assert.equal(calls, 0);
-
-  const enabled = await collectArtificialAnalysisModels({
-    apiKey: "test-secret",
-    fetchImpl: async (url, options) => {
-      calls += 1;
-      const parsed = new URL(url);
-      assert.equal(parsed.origin, "https://artificialanalysis.ai");
-      assert.equal(parsed.pathname, "/api/v2/language/models/free");
-      assert.equal(parsed.searchParams.get("page"), "1");
-      assert.equal(options.headers["x-api-key"], "test-secret");
-      return jsonResponse({
-        intelligence_index_version: 4.1,
-        pagination: { has_more: false },
-        data: [MODEL_FIXTURE],
-      });
-    },
-  });
-  assert.equal(calls, 1);
-  assert.equal(enabled.models.length, 1);
-  assert.doesNotMatch(JSON.stringify(enabled), /test-secret/);
-});
-
-test("Artificial Analysis follows page numbers, bounds the catalog, and honors rate-limit delay", async () => {
-  const pages = [];
-  const paged = await collectArtificialAnalysisModels({
-    apiKey: "test-key",
-    fetchImpl: async (url) => {
-      const page = Number(new URL(url).searchParams.get("page"));
-      pages.push(page);
-      return jsonResponse({
-        pagination: { has_more: page === 1 },
-        data: [{ ...MODEL_FIXTURE, id: `page-${page}`, name: `GPT-5.6 ${page === 1 ? "Sol" : "Terra"} (high)`, slug: `codex-page-${page}` }],
-      });
-    },
-  });
-  assert.deepEqual(pages, [1, 2]);
-  assert.equal(paged.models.length, 2);
-  assert.equal(paged.limited, false);
-
-  let capCalls = 0;
-  const capped = await collectArtificialAnalysisModels({
-    apiKey: "test-key",
-    fetchImpl: async () => {
-      capCalls += 1;
-      return jsonResponse({
-        pagination: { has_more: true },
-        data: [{ ...MODEL_FIXTURE, id: `cap-${capCalls}` }],
-      });
-    },
-  });
-  assert.equal(capCalls, 5);
-  assert.equal(capped.limited, true);
-
-  let itemCalls = 0;
-  const itemCapped = await collectArtificialAnalysisModels({
-    apiKey: "test-key",
-    fetchImpl: async () => {
-      itemCalls += 1;
-      return jsonResponse({
-        pagination: { has_more: true },
-        data: Array.from({ length: 750 }, (_value, index) => ({
-          ...MODEL_FIXTURE,
-          id: `catalog-${itemCalls}-${index}`,
-          name: `Codex catalog ${itemCalls}-${index}`,
-        })),
-      });
-    },
-  });
-  assert.equal(itemCalls, 2);
-  assert.equal(itemCapped.count, 1_000);
-  assert.equal(itemCapped.limited, true);
-
-  await assert.rejects(
-    () => collectArtificialAnalysisModels({
-      apiKey: "test-key",
-      fetchImpl: async () => new Response("", {
-        status: 429,
-        headers: { "Content-Type": "application/json", "Retry-After": "120" },
-      }),
-    }),
-    (error) => error.message === "The remote API rate limit was reached." && error.retryAfterMs === 120_000,
-  );
-});
-
-test("model display cap is explicit", () => {
-  const data = Array.from({ length: 31 }, (_value, index) => ({
-    ...MODEL_FIXTURE,
-    id: `codex-${index}`,
-    name: `Codex model ${index}`,
-    slug: `codex-model-${index}`,
-  }));
-  const result = parseArtificialAnalysisModels({ data });
-  assert.equal(result.count, 31);
-  assert.equal(result.displayedCount, 30);
-  assert.equal(result.models.length, 30);
-  assert.equal(result.limited, true);
-});
-
-test("insights requests are single-flight and child processes do not inherit the API key", async () => {
-  const counts = { resets: 0, models: 0 };
-  const fetchImpl = async (url) => {
-    const parsed = new URL(url);
-    if (parsed.hostname === "codex-resets.com") {
-      counts.resets += 1;
-      return jsonResponse({ data: [], pagination: { has_more: false, next_cursor: null }, meta: {} });
-    }
-    counts.models += 1;
-    return jsonResponse({ pagination: { has_more: false }, data: [MODEL_FIXTURE] });
-  };
-  const inspector = new CodexInspector({
-    codexHome: "/tmp/xedoc-test",
-    fetchImpl,
-    artificialAnalysisApiKey: "never-in-a-child",
-  });
-  const [left, right] = await Promise.all([inspector.insights(), inspector.insights()]);
-  assert.equal(counts.resets, 1);
-  assert.equal(counts.models, 1);
-  assert.deepEqual(left.resets, right.resets);
-  assert.deepEqual(left.models, right.models);
-
-  const environment = childEnvironment({
-    ARTIFICIAL_ANALYSIS_API_KEY: "never-in-a-child",
-    Artificial_Analysis_Api_Key: "also-never-in-a-child",
-    PATH: "/bin",
-  });
-  assert.equal(environment.ARTIFICIAL_ANALYSIS_API_KEY, undefined);
-  assert.equal(environment.Artificial_Analysis_Api_Key, undefined);
-  assert.equal(environment.PATH, "/bin");
-});
-
-test("reset-only inspection does not request model benchmark data", async () => {
+test("insights make one public reset request and no model-data network request", async () => {
   const hosts = [];
   const inspector = new CodexInspector({
-    codexHome: "/tmp/xedoc-reset-only-test",
-    artificialAnalysisApiKey: "not-needed-for-resets",
+    codexHome: "/tmp/xedoc-keyless-insights-test",
     fetchImpl: async (url) => {
       hosts.push(new URL(url).hostname);
       return jsonResponse({ data: [], pagination: { has_more: false, next_cursor: null }, meta: {} });
     },
   });
 
-  const resets = await inspector.resetHistory();
+  const [left, right] = await Promise.all([inspector.insights(), inspector.insights()]);
   assert.deepEqual(hosts, ["codex-resets.com"]);
-  assert.equal(resets.available, true);
-  assert.equal(resets.calendar.available, true);
+  assert.deepEqual(left.resets, right.resets);
+  assert.equal(left.modelProfiles.available, false);
+  assert.equal(left.network.policy.includes("computed locally"), true);
 });
 
 test("provider failures are negatively cached and an expired success can be served stale", async () => {
   let failedCalls = 0;
   const failedInspector = new CodexInspector({
     codexHome: "/tmp/xedoc-failed-test",
-    artificialAnalysisApiKey: "test-key",
     fetchImpl: async () => {
       failedCalls += 1;
       throw new TypeError("offline");
@@ -397,7 +196,7 @@ test("provider failures are negatively cached and an expired success can be serv
   });
   const first = await failedInspector.insights();
   const second = await failedInspector.insights();
-  assert.equal(failedCalls, 2);
+  assert.equal(failedCalls, 1);
   assert.equal(first.resets.available, false);
   assert.deepEqual(first.resets, second.resets);
 

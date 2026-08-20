@@ -37,12 +37,12 @@ test("launch opens the dashboard by default and supports an explicit no-open mod
   assert.deepEqual(launched, ["http://127.0.0.1/#token=test"]);
 });
 
-test("browser launcher passes the full URL without inheriting provider credentials", () => {
+test("browser launcher passes the full URL and requested environment", () => {
   let invocation;
   const child = { once() {}, unref() {} };
   openBrowser("http://127.0.0.1/#token=fragment", {
     platform: "linux",
-    sourceEnvironment: { PATH: "/bin", Artificial_Analysis_Api_Key: "secret" },
+    sourceEnvironment: { PATH: "/bin", LANG: "en_US.UTF-8" },
     spawnImpl: (command, args, options) => {
       invocation = { command, args, options };
       return child;
@@ -51,7 +51,7 @@ test("browser launcher passes the full URL without inheriting provider credentia
   assert.equal(invocation.command, "xdg-open");
   assert.deepEqual(invocation.args, ["http://127.0.0.1/#token=fragment"]);
   assert.equal(invocation.options.env.PATH, "/bin");
-  assert.equal(invocation.options.env.Artificial_Analysis_Api_Key, undefined);
+  assert.equal(invocation.options.env.LANG, "en_US.UTF-8");
 });
 
 test("file browser stays inside CODEX_HOME and marks sensitive metadata", async (context) => {

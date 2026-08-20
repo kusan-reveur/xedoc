@@ -7,7 +7,7 @@
   const TAB_ORDER = ["overview", "insights", "threads", "storage", "activity", "about"];
   const TAB_COPY = {
     overview: ["Overview", "A live view of Codex on this machine."],
-    insights: ["Insights", "Reset history and independent Codex model measurements."],
+    insights: ["Insights", "Public reset history and local model usage by thinking level."],
     threads: ["Threads", "Searchable local thread metadata."],
     storage: ["Storage", "A read-only view of the Codex disk footprint."],
     activity: ["Activity", "Operational events, tools, and usage counters."],
@@ -16,12 +16,6 @@
 
   const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
   const integerFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
-  const currencyFormatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 3,
-  });
   const compactFormatter = new Intl.NumberFormat(undefined, {
     notation: "compact",
     compactDisplay: "short",
@@ -160,11 +154,6 @@
     return numeric === null ? "—" : `${numberFormatter.format(numeric)}%`;
   }
 
-  function formatCurrency(value) {
-    const numeric = toNumber(value);
-    return numeric === null ? "—" : currencyFormatter.format(numeric);
-  }
-
   function formatDuration(secondsValue) {
     const seconds = toNumber(secondsValue);
     if (seconds === null || seconds < 0) return "—";
@@ -178,6 +167,22 @@
     if (hours < 24) return `${hours}h ${minutes % 60}m`;
     const days = Math.floor(hours / 24);
     return `${days}d ${hours % 24}h`;
+  }
+
+  function formatThinkingLevel(value) {
+    const normalized = cleanText(value, "unknown").trim().toLowerCase();
+    const labels = {
+      none: "None",
+      minimal: "Minimal",
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+      xhigh: "X-high",
+      max: "Max",
+      ultra: "Ultra",
+      unknown: "Unknown",
+    };
+    return labels[normalized] || formatKey(value);
   }
 
   function parseDate(value) {
@@ -784,7 +789,7 @@
     const controller = new AbortController();
     state.insights.controller = controller;
     state.insights.loading = true;
-    setInlineMessage("insights-message", state.insights.loaded ? "Refreshing external data…" : "Loading external data…", "info");
+    setInlineMessage("insights-message", state.insights.loaded ? "Refreshing insights…" : "Loading insights…", "info");
     try {
       state.insights.data = await apiFetch("/api/insights", { signal: controller.signal });
       state.insights.loaded = true;
@@ -805,47 +810,39 @@
   function renderInsights() {
     const insights = isObject(state.insights.data) ? state.insights.data : {};
     const resets = isObject(insights.resets) ? insights.resets : state.resetHistory.data;
-    const modelsData = isObject(insights.models) ? insights.models : {};
-    const modelsAvailable = modelsData.available === true;
-    const models = modelsAvailable ? asArray(modelsData.models) : [];
+    const profilesData = isObject(insights.modelProfiles) ? insights.modelProfiles : {};
+    const profilesAvailable = profilesData.available === true;
+    const profiles = profilesAvailable ? asArray(profilesData.models) : [];
 
-    const providerFetchTimes = [resets?.fetchedAt, modelsData.fetchedAt]
+    const updatedTimes = [resets?.fetchedAt, profilesData.observedAt]
       .map((value) => parseDate(value)?.getTime())
       .filter((value) => Number.isFinite(value));
-    setRelativeElement($("#insights-updated"), providerFetchTimes.length ? Math.max(...providerFetchTimes) : null);
-    setRelativeElement($("#models-fetched-at"), modelsData.fetchedAt);
+    setRelativeElement($("#insights-updated"), updatedTimes.length ? Math.max(...updatedTimes) : null);
+    setRelativeElement($("#model-profiles-observed-at"), profilesData.observedAt);
     renderResetHistory(resets);
 
     const performanceList = $("#model-performance-list");
     clearElement(performanceList);
-    const rankedCoding = models.map((model) => toNumber(model?.codingIndex)).filter((value) => value !== null);
-    const bestCoding = rankedCoding.length ? Math.max(...rankedCoding) : null;
-    models.forEach((model) => {
+    profiles.forEach((profile) => {
       const row = document.createElement("tr");
-      const codingIndex = toNumber(model?.codingIndex);
-      if (codingIndex !== null && codingIndex === bestCoding) row.classList.add("is-leading");
       const modelName = createElement("div", "model-name-cell");
-      modelName.append(createElement("strong", "", cleanText(model?.name, "Unnamed Codex model")));
-      const slug = cleanText(model?.slug, "");
-      if (slug) modelName.append(createElement("small", "mono", slug));
-      const speed = toNumber(model?.outputTokensPerSecond);
+      modelName.append(createElement("strong", "", cleanText(profile?.model, "Unknown model")));
       row.append(
-        createCell("Codex model", modelName),
-        createCell("Coding index", codingIndex === null ? "—" : numberFormatter.format(codingIndex)),
-        createCell("Intelligence", toNumber(model?.intelligenceIndex) === null ? "—" : numberFormatter.format(model.intelligenceIndex)),
-        createCell("Cost/task", formatCurrency(model?.costPerTask)),
-        createCell("End-to-end", formatDuration(model?.endToEndSeconds)),
-        createCell("Output speed", speed === null ? "—" : `${numberFormatter.format(speed)} tok/s`),
+        createCell("Model", modelName),
+        createCell("Thinking level", formatThinkingLevel(profile?.reasoningEffort), "reasoning-level-cell"),
+        createCell("Tasks", formatInteger(profile?.tasks)),
+        createCell("Total tokens", formatCompact(profile?.tokens)),
+        createCell("Avg tokens/task", formatCompact(profile?.averageTokens)),
+        createCell("Avg thread span", formatDuration(profile?.averageSpanSeconds)),
       );
       performanceList?.append(row);
     });
-    toggleHidden("model-performance-table-wrap", models.length === 0);
-    toggleHidden("model-performance-empty", models.length > 0);
-    setText($("#model-performance-empty p"), modelsAvailable
-      ? "The free API returned no benchmarked OpenAI Codex models."
-      : cleanText(modelsData.reason, "Model performance data is unavailable."));
-    const version = toNumber(modelsData.intelligenceIndexVersion);
-    setText("model-performance-note", `Coding and intelligence indices are higher-is-better. Cost/task is Artificial Analysis benchmark cost, not your Codex bill.${version === null ? "" : ` Intelligence Index v${version}.`}${modelsData.limited ? " Results are partial because a collection or display safety limit was reached." : ""}`);
+    toggleHidden("model-performance-table-wrap", profiles.length === 0);
+    toggleHidden("model-performance-empty", profiles.length > 0);
+    setText($("#model-performance-empty p"), profilesAvailable
+      ? "No local tasks contain model and thinking-level metadata yet."
+      : cleanText(profilesData.reason, "Local model profiles are unavailable."));
+    setText("model-performance-note", `These are your local task totals, not standardized benchmark scores. Average span is updated-to-created wall time and can include idle time.${profilesData.limited ? " The table shows the 30 largest model/level groups." : ""}`);
   }
 
   function renderHealth() {

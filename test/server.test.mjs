@@ -9,7 +9,7 @@ test("HTTP server keeps its token out of static responses and protects metadata 
     snapshot: async () => ({ generatedAt: 1, privacy: { localOnly: true } }),
     threads: async () => ({ data: [], total: 0 }),
     activity: async (threadId) => ({ available: true, threadId, events: [] }),
-    insights: async () => ({ generatedAt: 2, resets: { items: [] }, models: { models: [] } }),
+    insights: async () => ({ generatedAt: 2, resets: { items: [] }, modelProfiles: { models: [] } }),
     resetHistory: async () => ({ available: true, calendar: { days: [] } }),
     files: async () => ({ data: [], total: 0 }),
   };

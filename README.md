@@ -16,9 +16,9 @@
 - Warning/error counts and targets from structured logs without log bodies
 - Goal token/time accounting when explicit Codex goals exist
 - Codex reset announcement calendars in Overview and Insights, plus the past 30 days of source history from the public Codex Resets API
-- Independently measured Codex model coding, intelligence, cost, latency, and speed data from Artificial Analysis
+- Local model-and-thinking-level profiles with task count, total tokens, average tokens per task, and average thread wall span
 
-Xedoc deliberately does **not** estimate the cost of your local work. Local ChatGPT/Codex subscription token activity is not equivalent to API billing. Any cost shown in Insights is Artificial Analysis's benchmark cost per task.
+Xedoc deliberately does **not** estimate the cost or standardized quality of your local work. Local ChatGPT/Codex subscription token activity is not equivalent to API billing, and local tasks are not comparable benchmark workloads.
 
 ## Run it
 
@@ -36,13 +36,7 @@ node src/cli.mjs --no-open
 
 On a shared machine, prefer `--no-open` and copy the printed URL yourself: automatic opening briefly places the secret URL in the platform launcher command line.
 
-Reset history works without a third-party API key. Model performance uses the free Artificial Analysis Data API and is enabled when its server-side key is present:
-
-```bash
-ARTIFICIAL_ANALYSIS_API_KEY=your_key node src/cli.mjs
-```
-
-Create a key through the [Artificial Analysis Data API](https://artificialanalysis.ai/data-api). Xedoc keeps it out of browser code and removes it from environments inherited by helper processes. Environment variables can still be inspected by sufficiently privileged local users, so rotate the key if the machine or process environment is exposed.
+Xedoc needs no third-party credentials. Reset history uses the public, anonymous Codex Resets API; model and thinking-level profiles are computed from the local read-only thread index.
 
 Useful options:
 
@@ -69,16 +63,15 @@ Xedoc is read-only by design:
 - only parses one bounded selected/recent rollout tail at a time and whitelists known numeric/status fields;
 - refuses to browse through symbolic links.
 
-The Overview reset calendar and Insights panel make read-only outbound requests from the local server to two fixed providers and cache them independently from the five-second local snapshot loop:
+The Overview reset calendar and Insights panel make read-only outbound requests from the local server to one fixed public provider and cache them independently from the five-second local snapshot loop:
 
 - `codex-resets.com` receives a UTC `from`/`to` range covering the past 30 days plus bounded sort/pagination controls;
-- `artificialanalysis.ai` receives its API key and page number, but no local Codex metadata, paths, thread IDs, prompts, or usage data.
 
-As with any network request, each provider can also observe normal connection metadata such as the source IP and request time.
+As with any network request, the provider can also observe normal connection metadata such as the source IP and request time.
 
-Artificial Analysis data is cached in memory for 12 hours; reset history is cached for five minutes. Provider failures affect only the corresponding external-data panel. No third-party response or credential is written to disk by Xedoc.
+Reset history is cached in memory for five minutes. Provider failures affect only the reset panels. No third-party response or credential is written to disk by Xedoc.
 
-External reads are capped at five pages, 500 reset records or 1,000 model records, and aggregate JSON budgets of 4 MiB for resets or 8 MiB for models. The dashboard marks results as partial when a cap is reached.
+External reads are capped at five pages, 500 reset records, and an aggregate JSON budget of 4 MiB. The dashboard marks results as partial when a cap is reached.
 
 Task names, paths, filenames, thread IDs, process names, and repository locations are still metadata and may be sensitive. Treat screenshots and screen sharing accordingly.
 
@@ -102,7 +95,8 @@ Xedoc discovers these sources rather than assuming a fixed version suffix:
 - macOS Codex app support, cache, update-cache, log, and HTTP-storage directories
 - Codex/OpenAI-named entries directly under known system temp roots
 - the public [Codex Resets API](https://codex-resets.com/api/docs) for bounded reset-announcement history
-- the [Artificial Analysis free Data API](https://artificialanalysis.ai/data-api/docs) for attributed, independently measured Codex model data
+
+Insights also links to [Artificial Analysis's public Codex comparison](https://artificialanalysis.ai/agents/coding-agents/comparisons/codex-vs-cursor-cli) for users who want a standardized external benchmark. Xedoc does not fetch, copy, or redistribute that data.
 
 OpenAI documents `CODEX_HOME`, `CODEX_SQLITE_HOME`, local session persistence, logs, and opt-in OpenTelemetry in the [Codex environment-variable](https://learn.chatgpt.com/docs/config-file/environment-variables) and [advanced configuration](https://learn.chatgpt.com/docs/config-file/config-advanced) documentation. The numbered SQLite schemas and rollout record shapes used for richer local metadata are internal and may change; Xedoc fails individual panels independently when a schema is unavailable.
 
@@ -116,9 +110,8 @@ OpenAI documents `CODEX_HOME`, `CODEX_SQLITE_HOME`, local session persistence, l
 - Daily token bars assign a thread's current total to its creation date; they are not billing or a precise daily consumption ledger.
 - Cached input and reasoning output are subsets and are not added on top of total tokens.
 - Reset timestamps are unofficial announcement times, not guaranteed reset-occurrence times.
-- Artificial Analysis scores, cost/task, and performance describe its own benchmark workloads and API models, not local Codex subscription quality, latency, or billing.
-- Artificial Analysis metrics are nullable; Xedoc displays missing values as unknown rather than zero.
-- The free API has no formal Codex-configuration flag; Xedoc includes OpenAI rows explicitly named Codex, Sol, Terra, or Luna and never guesses unmatched local configurations.
+- Model-and-thinking-level profiles describe the local tasks recorded in this Codex installation; they are not standardized quality or performance benchmarks.
+- Average tokens per task use the current recorded thread total. Average thread span is `updated - created` wall time and can include idle time.
 - Live Codex files can move, grow, archive, or disappear during a scan; Xedoc treats those races as normal.
 - Safety budgets cap top-level, temporary, open-file, directory-browser, and rollout-candidate scans; the dashboard marks partial counts with `+` and partial byte totals as lower bounds.
 

@@ -1,10 +1,7 @@
 const CODEX_RESETS_ENDPOINT = "https://codex-resets.com/api/v1/resets";
-const ARTIFICIAL_ANALYSIS_ENDPOINT = "https://artificialanalysis.ai/api/v2/language/models/free";
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const RESET_RESPONSE_BUDGET_BYTES = 4 * 1024 * 1024;
-const MODEL_RESPONSE_BUDGET_BYTES = 8 * 1024 * 1024;
 const MAX_RESET_ITEMS = 500;
-const MAX_MODEL_ITEMS = 1_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 const COLLECTION_TIMEOUT_MS = 20_000;
 
@@ -29,12 +26,6 @@ function retryDelayMs(response) {
   if (Number.isFinite(resetAt) && resetAt > 0) candidates.push(resetAt * 1_000 - Date.now());
   const delay = Math.max(0, ...candidates.filter(Number.isFinite));
   return Math.min(delay, 24 * 60 * 60_000);
-}
-
-function finiteNumber(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
 }
 
 function shortText(value, maximum = 400) {
@@ -237,104 +228,6 @@ export async function collectResetHistory({ fetchImpl = globalThis.fetch, now = 
   return { ...parseResetHistory(combined, { from, to }), fetchedAt: Date.now() };
 }
 
-function isCodexRelevantOpenAiModel(item) {
-  const creatorName = String(item?.model_creator?.name || "").trim().toLowerCase();
-  const creatorSlug = String(item?.model_creator?.slug || "").trim().toLowerCase();
-  const model = `${item?.name || ""} ${item?.slug || ""}`.toLowerCase();
-  return (creatorName === "openai" || creatorSlug === "openai")
-    && /\b(?:codex|sol|terra|luna)\b/.test(model);
-}
-
-export function parseArtificialAnalysisModels(payload) {
-  const sourceItems = Array.isArray(payload?.data) ? payload.data : [];
-  const matchingModels = sourceItems
-    .filter(isCodexRelevantOpenAiModel)
-    .map((item) => ({
-      id: shortText(item?.id, 120),
-      name: shortText(item?.name, 160) || "Unnamed Codex model",
-      slug: shortText(item?.slug, 180),
-      codingIndex: finiteNumber(item?.evaluations?.artificial_analysis_coding_index),
-      intelligenceIndex: finiteNumber(item?.evaluations?.artificial_analysis_intelligence_index),
-      agenticIndex: finiteNumber(item?.evaluations?.artificial_analysis_agentic_index),
-      costPerTask: finiteNumber(item?.artificial_analysis_intelligence_index_cost?.cost_per_task?.total_cost),
-      blendedPricePerMillion: finiteNumber(item?.pricing?.price_1m_blended_3_to_1),
-      inputPricePerMillion: finiteNumber(item?.pricing?.price_1m_input_tokens),
-      outputPricePerMillion: finiteNumber(item?.pricing?.price_1m_output_tokens),
-      outputTokensPerSecond: finiteNumber(item?.performance?.median_output_tokens_per_second ?? item?.median_output_tokens_per_second),
-      timeToFirstTokenSeconds: finiteNumber(item?.performance?.median_time_to_first_token_seconds ?? item?.median_time_to_first_token_seconds),
-      endToEndSeconds: finiteNumber(item?.performance?.median_end_to_end_response_time_seconds),
-    }))
-    .sort((left, right) => (right.codingIndex ?? -Infinity) - (left.codingIndex ?? -Infinity));
-  const models = matchingModels.slice(0, 30);
-
-  return {
-    available: true,
-    configured: true,
-    models,
-    count: matchingModels.length,
-    displayedCount: models.length,
-    limited: Boolean(payload?.limited) || matchingModels.length > models.length,
-    promptLength: shortText(payload?.prompt_options?.prompt_length, 40) || null,
-    intelligenceIndexVersion: finiteNumber(payload?.intelligence_index_version),
-    source: "Artificial Analysis",
-    sourceUrl: "https://artificialanalysis.ai/",
-    methodologyUrl: "https://artificialanalysis.ai/methodology",
-  };
-}
-
-export async function collectArtificialAnalysisModels({ apiKey, fetchImpl = globalThis.fetch } = {}) {
-  if (!apiKey) {
-    return {
-      available: false,
-      configured: false,
-      fetchedAt: null,
-      reason: "Set ARTIFICIAL_ANALYSIS_API_KEY before launching Xedoc to load free API data.",
-      models: [],
-      count: 0,
-      source: "Artificial Analysis",
-      sourceUrl: "https://artificialanalysis.ai/",
-    };
-  }
-  const deadline = Date.now() + COLLECTION_TIMEOUT_MS;
-  const byteBudget = { remaining: MODEL_RESPONSE_BUDGET_BYTES };
-  const url = new URL(ARTIFICIAL_ANALYSIS_ENDPOINT);
-  const combined = { data: [] };
-  let hasMore = false;
-  let limited = false;
-  for (let pageNumber = 1; pageNumber <= 5; pageNumber += 1) {
-    if (byteBudget.remaining <= 0 || combined.data.length >= MAX_MODEL_ITEMS) {
-      limited = true;
-      break;
-    }
-    url.searchParams.set("page", String(pageNumber));
-    let page;
-    try {
-      page = await fetchJson(url, {
-        fetchImpl,
-        headers: { "x-api-key": String(apiKey) },
-        timeoutMs: remainingTimeout(deadline),
-        byteBudget,
-      });
-    } catch (error) {
-      if (error?.code !== "REMOTE_RESPONSE_BUDGET_EXCEEDED" || pageNumber === 1) throw error;
-      limited = true;
-      break;
-    }
-    const pageItems = Array.isArray(page?.data) ? page.data : [];
-    const remainingItems = MAX_MODEL_ITEMS - combined.data.length;
-    combined.data.push(...pageItems.slice(0, remainingItems));
-    if (pageItems.length > remainingItems) limited = true;
-    if (combined.intelligence_index_version === undefined) {
-      combined.intelligence_index_version = page?.intelligence_index_version;
-    }
-    hasMore = Boolean(page?.pagination?.has_more);
-    if (!hasMore || limited) break;
-  }
-  combined.limited = limited || hasMore;
-  return { ...parseArtificialAnalysisModels(combined), fetchedAt: Date.now() };
-}
-
 export const EXTERNAL_ENDPOINTS = {
   codexResets: CODEX_RESETS_ENDPOINT,
-  artificialAnalysis: ARTIFICIAL_ANALYSIS_ENDPOINT,
 };

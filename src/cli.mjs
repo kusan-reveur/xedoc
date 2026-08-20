@@ -40,7 +40,7 @@ async function main() {
   const dashboardUrl = `${address.url}#token=${encodeURIComponent(token)}`;
   console.log(`Dashboard:   ${dashboardUrl}`);
   console.log(`Codex home: ${displayPath(options.codexHome)}`);
-  console.log("Privacy:    loopback-only UI, read-only, no analytics; Insights uses cached fixed providers");
+  console.log("Privacy:    loopback-only UI, read-only, no analytics; reset dates use one cached public source");
   console.log("Press Ctrl+C to stop.");
 
   launchDashboard(dashboardUrl, { open: options.open });

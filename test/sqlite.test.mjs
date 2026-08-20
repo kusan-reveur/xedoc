@@ -53,8 +53,22 @@ test("SQLite collectors return metadata aggregates without content columns", () 
     assert.equal(overview.stats.archivedThreads, 1);
     assert.equal(overview.byModel[0].key, "gpt-test");
     assert.deepEqual(overview.byModelReasoning, [
-      { key: "gpt-test", reasoningEffort: "high", threads: 1, tokens: 120 },
-      { key: "gpt-test", reasoningEffort: "medium", threads: 1, tokens: 80 },
+      {
+        key: "gpt-test",
+        reasoningEffort: "high",
+        threads: 1,
+        tokens: 120,
+        averageTokens: 120,
+        averageSpanSeconds: 100,
+      },
+      {
+        key: "gpt-test",
+        reasoningEffort: "medium",
+        threads: 1,
+        tokens: 80,
+        averageTokens: 80,
+        averageSpanSeconds: 500,
+      },
     ]);
     assert.equal(overview.recentThreads[0].id, "thread-a");
     assert.equal(overview.recentThreads[0].tokens, 120);

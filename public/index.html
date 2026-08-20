@@ -35,7 +35,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /></svg>
             <span>Overview</span>
           </button>
-          <button class="nav-item" id="tab-insights" type="button" role="tab" aria-label="Benchmarks and resets" aria-selected="false" aria-controls="view-insights" data-tab="insights" tabindex="-1">
+          <button class="nav-item" id="tab-insights" type="button" role="tab" aria-label="Usage and resets" aria-selected="false" aria-controls="view-insights" data-tab="insights" tabindex="-1">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M3 19h18" /><path d="m4 7 6-4 6 6 5-5" /></svg>
             <span>Insights</span>
           </button>
@@ -228,12 +228,12 @@
 
           <section class="view" id="view-insights" role="tabpanel" aria-labelledby="tab-insights" tabindex="0" data-view="insights" hidden>
             <div class="section-heading insights-heading">
-              <div><p class="eyebrow">External signals</p><h2>Codex benchmarks &amp; resets</h2><p>A cached, read-only view of public reset announcements and independently measured Codex models.</p></div>
-              <span class="scan-time">Fetched <time id="insights-updated">—</time></span>
+              <div><p class="eyebrow">Local profile &amp; public signal</p><h2>Codex usage &amp; resets</h2><p>A read-only view of local model usage and public reset announcements.</p></div>
+              <span class="scan-time">Updated <time id="insights-updated">—</time></span>
             </div>
             <div class="content-boundary-note insights-network-note">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" /></svg>
-              <p><strong>Network boundary:</strong> the local server contacts two fixed, read-only providers. Artificial Analysis credentials never enter browser code.</p>
+              <p><strong>Network boundary:</strong> only a bounded date range is sent to the public Codex Resets API. Model and thinking-level profiles stay on this machine.</p>
             </div>
             <p class="inline-message is-hidden" id="insights-message" role="status"></p>
 
@@ -270,19 +270,19 @@
 
             <article class="panel model-performance-panel">
               <div class="panel-header">
-                <div><p class="panel-kicker">Independent measurements</p><h2>Codex model performance</h2></div>
-                <div class="panel-source-actions"><span class="provider-age">Fetched <time id="models-fetched-at">—</time></span><a class="source-link" href="https://artificialanalysis.ai/" target="_blank" rel="noreferrer noopener">Artificial Analysis ↗</a></div>
+                <div><p class="panel-kicker">Observed local workload</p><h2>Model &amp; thinking-level profile</h2></div>
+                <div class="panel-source-actions"><span class="provider-age">Observed <time id="model-profiles-observed-at">—</time></span><a class="source-link" href="https://artificialanalysis.ai/agents/coding-agents/comparisons/codex-vs-cursor-cli" target="_blank" rel="noreferrer noopener">External benchmark ↗</a></div>
               </div>
-              <p class="panel-note" id="model-performance-note">Coding and intelligence indices are higher-is-better. Cost/task is Artificial Analysis benchmark cost, not your Codex bill.</p>
+              <p class="panel-note" id="model-performance-note">These are your local task totals, not standardized benchmark scores. Average span is updated-to-created wall time and can include idle time.</p>
               <div class="table-wrap insights-table-wrap" id="model-performance-table-wrap">
                 <table class="insights-table performance-table">
-                  <caption class="sr-only">Artificial Analysis performance data for benchmarked OpenAI Codex models</caption>
-                  <thead><tr><th scope="col">Codex model</th><th scope="col">Coding index</th><th scope="col">Intelligence</th><th scope="col">Cost/task</th><th scope="col">End-to-end</th><th scope="col">Output speed</th></tr></thead>
+                  <caption class="sr-only">Observed local task and token totals by Codex model and thinking level</caption>
+                  <thead><tr><th scope="col">Model</th><th scope="col">Thinking level</th><th scope="col">Tasks</th><th scope="col">Total tokens</th><th scope="col">Avg tokens/task</th><th scope="col">Avg thread span</th></tr></thead>
                   <tbody id="model-performance-list"></tbody>
                 </table>
               </div>
-              <div class="empty-state is-hidden" id="model-performance-empty"><p>Model performance data is not available.</p></div>
-              <p class="attribution-copy">Data provided by <a href="https://artificialanalysis.ai/" target="_blank" rel="noreferrer noopener">Artificial Analysis</a>. Xedoc includes OpenAI rows named Codex, Sol, Terra, or Luna; the API has no formal Codex-configuration field.</p>
+              <div class="empty-state is-hidden" id="model-performance-empty"><p>No local model profile is available.</p></div>
+              <p class="attribution-copy">Need a standardized comparison? Open <a href="https://artificialanalysis.ai/agents/coding-agents/comparisons/codex-vs-cursor-cli" target="_blank" rel="noreferrer noopener">Artificial Analysis's public Codex comparison</a>. Xedoc links to it but does not fetch or redistribute its data.</p>
             </article>
           </section>
 
@@ -454,7 +454,7 @@
                 <ul class="check-list">
                   <li><span aria-hidden="true">✓</span><div><strong>Metadata, not conversations</strong><p>Thread IDs, timestamps, counts, model labels, and operational status.</p></div></li>
                   <li><span aria-hidden="true">✓</span><div><strong>File facts, not file content</strong><p>Names, paths, sizes, kinds, and modification times within the scoped Codex home.</p></div></li>
-                  <li><span aria-hidden="true">✓</span><div><strong>Read-only requests</strong><p>Local inspection stays local; the Overview reset calendar and Insights panel use two fixed, cached third-party data sources and offer no write actions.</p></div></li>
+                  <li><span aria-hidden="true">✓</span><div><strong>Read-only requests</strong><p>Local inspection stays local; reset calendars use one fixed, cached public source and offer no write actions.</p></div></li>
                 </ul>
               </article>
               <article class="panel">

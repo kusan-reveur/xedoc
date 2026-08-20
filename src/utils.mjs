@@ -5,15 +5,8 @@ import { promisify } from "node:util";
 
 const execFilePromise = promisify(execFile);
 
-const CHILD_ENV_SECRET_KEYS = ["ARTIFICIAL_ANALYSIS_API_KEY"];
-
 export function childEnvironment(source = process.env, additions = {}) {
-  const environment = { ...source, ...additions };
-  const secretKeys = new Set(CHILD_ENV_SECRET_KEYS.map((key) => key.toUpperCase()));
-  for (const key of Object.keys(environment)) {
-    if (secretKeys.has(key.toUpperCase())) delete environment[key];
-  }
-  return environment;
+  return { ...source, ...additions };
 }
 
 export async function runFile(command, args = [], options = {}) {

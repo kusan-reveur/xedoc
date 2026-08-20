@@ -1,16 +1,14 @@
 import os from "node:os";
 import { displayPath } from "./config.mjs";
 import { collectRecentActivity } from "./collectors/activity.mjs";
-import {
-  collectArtificialAnalysisModels,
-  collectResetHistory,
-} from "./collectors/external.mjs";
+import { collectResetHistory } from "./collectors/external.mjs";
 import { collectOpenFiles, collectProcesses } from "./collectors/processes.mjs";
 import {
   describeDatabase,
   findVersionedDatabase,
   queryGoalStats,
   queryLogHealth,
+  queryModelReasoningProfile,
   queryRolloutCandidates,
   queryRolloutTaskMetadata,
   queryThreadActivityCandidate,
@@ -54,12 +52,10 @@ export class CodexInspector {
     codexHome,
     sqliteHome = codexHome,
     fetchImpl = globalThis.fetch,
-    artificialAnalysisApiKey = process.env.ARTIFICIAL_ANALYSIS_API_KEY,
   } = {}) {
     this.codexHome = codexHome;
     this.sqliteHome = sqliteHome;
     this.fetchImpl = fetchImpl;
-    this.artificialAnalysisApiKey = artificialAnalysisApiKey;
     this.databaseCache = new TtlCache(10_000);
     this.storageCache = new TtlCache(60_000);
     this.processCache = new TtlCache(2_000);
@@ -68,7 +64,6 @@ export class CodexInspector {
     this.activityTtlMs = 10_000;
     this.rolloutCache = new TtlCache(60_000);
     this.resetHistoryCache = new TtlCache(5 * 60_000);
-    this.modelPerformanceCache = new TtlCache(12 * 60 * 60_000);
   }
 
   async recentActivity({ rolloutPath, thread = null, threadId = null } = {}) {
@@ -328,7 +323,7 @@ export class CodexInspector {
         readOnly: true,
         analytics: false,
         remoteAssets: false,
-        externalInsights: "Codex Resets date range and optional Artificial Analysis API key only; no local Codex metadata is sent.",
+        externalInsights: "Only the bounded Codex Resets date range leaves the machine; no local Codex metadata is sent.",
         contentPolicy: "Xedoc reads only whitelisted metrics from recent rollout tails and never returns prompts, reasoning, commands, tool output, auth, or config contents.",
       },
       sources: [
@@ -406,36 +401,58 @@ export class CodexInspector {
     return { ...resets, calendar: buildResetCalendar(resets) };
   }
 
-  async modelPerformance() {
-    return this.modelPerformanceCache
-      .get(() => collectArtificialAnalysisModels({
-        apiKey: this.artificialAnalysisApiKey,
-        fetchImpl: this.fetchImpl,
-      }), {
-        staleIfError: true,
-        errorTtlMs: (error) => Math.max(5 * 60_000, Number(error?.retryAfterMs) || 0),
-        fallbackOnError: (error) => ({
-          available: false,
-          configured: Boolean(this.artificialAnalysisApiKey),
-          fetchedAt: null,
-          reason: publicExternalReason(error, "Artificial Analysis data is temporarily unavailable."),
-          models: [],
-          count: null,
-          source: "Artificial Analysis",
-          sourceUrl: "https://artificialanalysis.ai/",
-        }),
-      });
+  async localModelProfiles() {
+    const paths = await this.databasePaths();
+    if (!paths.state) {
+      return {
+        available: false,
+        reason: "State database unavailable.",
+        models: [],
+        count: null,
+        observedAt: null,
+        source: "Local Codex state",
+      };
+    }
+    try {
+      const rows = withReadonlyDatabase(paths.state, (database) => queryModelReasoningProfile(database, { limit: 31 }));
+      const limited = rows.length > 30;
+      const models = rows.slice(0, 30).map((row) => ({
+        model: row.key,
+        reasoningEffort: row.reasoningEffort,
+        tasks: row.threads,
+        tokens: row.tokens,
+        averageTokens: row.averageTokens,
+        averageSpanSeconds: row.averageSpanSeconds,
+      }));
+      return {
+        available: true,
+        models,
+        count: models.length,
+        limited,
+        observedAt: Date.now(),
+        source: "Local Codex state",
+      };
+    } catch {
+      return {
+        available: false,
+        reason: "Local model and thinking-level metadata is unavailable.",
+        models: [],
+        count: null,
+        observedAt: null,
+        source: "Local Codex state",
+      };
+    }
   }
 
   async insights() {
-    const [resets, models] = await Promise.all([this.resetHistory(), this.modelPerformance()]);
+    const [resets, modelProfiles] = await Promise.all([this.resetHistory(), this.localModelProfiles()]);
     return {
       generatedAt: Date.now(),
       resets,
-      models,
+      modelProfiles,
       network: {
         enabled: true,
-        policy: "Fixed read-only providers, bounded responses, server-side caching, and no browser-visible API key.",
+        policy: "Only Codex reset dates are fetched from a fixed public endpoint; model profiles are computed locally.",
       },
     };
   }

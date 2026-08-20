@@ -121,6 +121,42 @@ const PUBLIC_THREAD_COLUMNS = `
   agent_nickname, agent_role
 `;
 
+export function queryModelReasoningProfile(database, { limit = 96 } = {}) {
+  const maximum = Math.max(1, Math.min(200, Number(limit) || 96));
+  return database.prepare(`
+    SELECT
+      COALESCE(NULLIF(model, ''), NULLIF(model_provider, ''), 'unknown') AS key,
+      COALESCE(NULLIF(TRIM(reasoning_effort), ''), 'unknown') AS effort_key,
+      COUNT(*) AS threads,
+      SUM(tokens_used) AS tokens,
+      AVG(tokens_used) AS average_tokens,
+      AVG(
+        CASE
+          WHEN COALESCE(NULLIF(updated_at_ms, 0), updated_at * 1000)
+            >= COALESCE(NULLIF(created_at_ms, 0), created_at * 1000)
+          THEN (
+            COALESCE(NULLIF(updated_at_ms, 0), updated_at * 1000)
+            - COALESCE(NULLIF(created_at_ms, 0), created_at * 1000)
+          ) / 1000.0
+          ELSE NULL
+        END
+      ) AS average_span_seconds
+    FROM threads
+    GROUP BY key, effort_key
+    ORDER BY tokens DESC
+    LIMIT ?
+  `).all(maximum).map((row) => ({
+    key: row.key,
+    reasoningEffort: row.effort_key,
+    threads: toFiniteNumber(row.threads),
+    tokens: toFiniteNumber(row.tokens),
+    averageTokens: row.average_tokens === null ? null : toFiniteNumber(row.average_tokens, null),
+    averageSpanSeconds: row.average_span_seconds === null
+      ? null
+      : toFiniteNumber(row.average_span_seconds, null),
+  }));
+}
+
 export function queryThreadOverview(database, { recentLimit = 20, now = Date.now() } = {}) {
   const recentCutoff = Math.floor(now / 1_000) - 15 * 60;
   const statsRow = database.prepare(`
@@ -148,22 +184,7 @@ export function queryThreadOverview(database, { recentLimit = 20, now = Date.now
     tokens: toFiniteNumber(row.tokens),
   }));
 
-  const byModelReasoning = database.prepare(`
-    SELECT
-      COALESCE(NULLIF(model, ''), NULLIF(model_provider, ''), 'unknown') AS key,
-      COALESCE(NULLIF(TRIM(reasoning_effort), ''), 'unknown') AS effort_key,
-      COUNT(*) AS threads,
-      SUM(tokens_used) AS tokens
-    FROM threads
-    GROUP BY key, effort_key
-    ORDER BY tokens DESC
-    LIMIT 96
-  `).all().map((row) => ({
-    key: row.key,
-    reasoningEffort: row.effort_key,
-    threads: toFiniteNumber(row.threads),
-    tokens: toFiniteNumber(row.tokens),
-  }));
+  const byModelReasoning = queryModelReasoningProfile(database);
 
   const rawDaily = database.prepare(`
     SELECT
