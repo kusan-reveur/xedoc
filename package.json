@@ -1,0 +1,19 @@
+{
+  "name": "xedoc",
+  "version": "0.1.0",
+  "description": "A private, local-only observability dashboard for Codex.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "xedoc": "src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=22.16"
+  },
+  "scripts": {
+    "start": "node src/cli.mjs",
+    "dev": "node --watch src/cli.mjs",
+    "test": "node --test",
+    "check": "node --check public/app.js && node --test"
+  }
+}

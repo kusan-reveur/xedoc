@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#0b1020">
+    <meta name="description" content="A local, read-only view of Codex runtime, thread, storage, and usage metadata.">
+    <title>Xedoc — Codex, in plain sight.</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Xedoc navigation">
+        <a class="brand" href="#overview" aria-label="Xedoc overview">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 36 36" role="img">
+              <path d="M18 4.5a13.5 13.5 0 1 0 13.5 13.5" />
+              <path d="M18 9.5A8.5 8.5 0 1 0 26.5 18" />
+              <circle cx="18" cy="18" r="2.7" />
+              <path d="M18 18 29.5 7.5" />
+            </svg>
+          </span>
+          <span>
+            <strong>Xedoc</strong>
+            <small>Codex, in plain sight.</small>
+          </span>
+        </a>
+
+        <nav class="primary-nav" role="tablist" aria-label="Dashboard sections" aria-orientation="vertical">
+          <button class="nav-item is-active" id="tab-overview" type="button" role="tab" aria-label="Overview" aria-selected="true" aria-controls="view-overview" data-tab="overview">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /></svg>
+            <span>Overview</span>
+          </button>
+          <button class="nav-item" id="tab-threads" type="button" role="tab" aria-label="Threads" aria-selected="false" aria-controls="view-threads" data-tab="threads" tabindex="-1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H9l-4 3v-13Z" /><path d="M8 9h8M8 12h5" /></svg>
+            <span>Threads</span>
+          </button>
+          <button class="nav-item" id="tab-storage" type="button" role="tab" aria-label="Storage" aria-selected="false" aria-controls="view-storage" data-tab="storage" tabindex="-1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></svg>
+            <span>Storage</span>
+          </button>
+          <button class="nav-item" id="tab-activity" type="button" role="tab" aria-label="Activity" aria-selected="false" aria-controls="view-activity" data-tab="activity" tabindex="-1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.2-6 4.1 12 2.1-6H21" /></svg>
+            <span>Activity</span>
+          </button>
+          <button class="nav-item" id="tab-about" type="button" role="tab" aria-label="About" aria-selected="false" aria-controls="view-about" data-tab="about" tabindex="-1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.1" /></svg>
+            <span>About</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span class="local-badge">
+            <span class="local-dot" aria-hidden="true"></span>
+            Local only
+          </span>
+          <p>Metadata is read-only and stays on this machine.</p>
+        </div>
+      </aside>
+
+      <main class="workspace" id="main-content">
+        <header class="topbar">
+          <div class="topbar-copy">
+            <p class="eyebrow">Local observability</p>
+            <h1 id="page-title">Overview</h1>
+            <p id="page-subtitle">A live view of Codex on this machine.</p>
+          </div>
+          <div class="topbar-actions">
+            <div class="connection" id="connection-status" data-state="loading" role="status" aria-live="polite">
+              <span class="connection-dot" aria-hidden="true"></span>
+              <span id="connection-label">Connecting</span>
+            </div>
+            <div class="updated-copy">
+              <span>Updated</span>
+              <time id="last-updated">—</time>
+            </div>
+            <button class="icon-button" id="refresh-button" type="button" aria-label="Refresh dashboard" title="Refresh dashboard">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="content">
+          <section class="view is-active" id="view-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0" data-view="overview">
+            <div class="privacy-banner">
+              <span class="privacy-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.8 2.9 8.3 7 10 4.1-1.7 7-5.2 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-4" /></svg>
+              </span>
+              <div>
+                <strong>Private by design</strong>
+                <p>Xedoc displays local metadata only. Prompt and response content is never required by this interface.</p>
+              </div>
+              <button class="text-button" type="button" data-go-tab="about">Learn more</button>
+            </div>
+
+            <div class="metric-grid" aria-label="Codex summary">
+              <article class="metric-card metric-card--violet">
+                <div class="metric-topline"><span>Threads</span><span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5.5h14v10H9l-4 3v-13Z" /></svg></span></div>
+                <strong id="stat-threads">—</strong>
+                <p><span id="stat-active-threads">—</span> updated in 15m</p>
+              </article>
+              <article class="metric-card metric-card--cyan">
+                <div class="metric-topline"><span>Token usage</span><span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5h8l4 7-4 7H8l-4-7 4-7Z" /></svg></span></div>
+                <strong id="stat-tokens">—</strong>
+                <p>Observed total</p>
+              </article>
+              <article class="metric-card metric-card--green">
+                <div class="metric-topline"><span>Storage</span><span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" /></svg></span></div>
+                <strong id="stat-storage">—</strong>
+                <p>Known local footprint</p>
+              </article>
+              <article class="metric-card metric-card--amber">
+                <div class="metric-topline"><span>Last 24 hours</span><span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z" /><path d="M12 9v5M12 17v.1" /></svg></span></div>
+                <strong id="stat-warnings">—</strong>
+                <p><span id="stat-errors">—</span> errors recorded</p>
+              </article>
+            </div>
+
+            <div class="dashboard-grid dashboard-grid--runtime">
+              <article class="panel runtime-panel">
+                <div class="panel-header">
+                  <div><p class="panel-kicker">System</p><h2>Codex runtime</h2></div>
+                  <span class="status-chip" id="runtime-status"><span></span>Checking</span>
+                </div>
+                <div class="runtime-summary">
+                  <div class="radial-meter" id="memory-meter" data-level="0" role="img" aria-label="Memory usage unavailable">
+                    <div><strong id="runtime-memory">—</strong><span>Host family RSS</span></div>
+                  </div>
+                  <dl class="runtime-facts">
+                    <div><dt>CPU</dt><dd id="runtime-cpu">—</dd></div>
+                    <div><dt>Processes</dt><dd id="runtime-processes">—</dd></div>
+                    <div><dt>Codex worker RSS</dt><dd id="runtime-worker-memory">—</dd></div>
+                    <div><dt>Longest uptime</dt><dd id="runtime-uptime">—</dd></div>
+                  </dl>
+                </div>
+                <p class="inline-message is-hidden" id="runtime-message"></p>
+                <div class="table-wrap compact-table-wrap" id="runtime-table-wrap">
+                  <table>
+                    <caption class="sr-only">Observed Codex processes</caption>
+                    <thead><tr><th scope="col">Process</th><th scope="col">PID</th><th scope="col">Memory</th><th scope="col">CPU</th></tr></thead>
+                    <tbody id="runtime-process-list"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="panel identity-panel">
+                <div class="panel-header">
+                  <div><p class="panel-kicker">Environment</p><h2>Local installation</h2></div>
+                  <span class="mono-pill" id="codex-version">Version —</span>
+                </div>
+                <dl class="detail-list">
+                  <div><dt>Codex home</dt><dd class="mono truncate" id="codex-home" title="">—</dd></div>
+                  <div><dt>Platform</dt><dd id="codex-platform">—</dd></div>
+                  <div><dt>Archived threads</dt><dd id="codex-archived">—</dd></div>
+                  <div><dt>Storage scan</dt><dd id="storage-updated">—</dd></div>
+                  <div><dt>Top log target</dt><dd class="mono truncate" id="codex-log-target" title="">—</dd></div>
+                  <div><dt>Goal accounting</dt><dd id="codex-goals">—</dd></div>
+                </dl>
+                <div class="mini-actions">
+                  <button class="button button--secondary" type="button" data-go-tab="storage">Explore storage</button>
+                  <button class="button button--secondary" type="button" data-go-tab="threads">View threads</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="dashboard-grid">
+              <article class="panel usage-panel">
+                <div class="panel-header">
+                  <div><p class="panel-kicker">Usage</p><h2>Tokens by model</h2></div>
+                  <span class="muted-label">Observed totals</span>
+                </div>
+                <div class="bar-list" id="model-usage-list"></div>
+                <div class="empty-state is-hidden" id="model-usage-empty"><p>No model usage metadata is available yet.</p></div>
+              </article>
+              <article class="panel health-panel">
+                <div class="panel-header">
+                  <div><p class="panel-kicker">Diagnostics</p><h2>Health signals</h2></div>
+                  <span class="count-badge" id="health-count">0</span>
+                </div>
+                <ul class="signal-list" id="health-list"></ul>
+                <div class="empty-state positive is-hidden" id="health-empty">
+                  <span aria-hidden="true">✓</span>
+                  <div><strong>No warnings reported</strong><p>Nothing in the current snapshot needs attention.</p></div>
+                </div>
+              </article>
+            </div>
+
+            <article class="panel daily-panel">
+              <div class="panel-header">
+                <div><p class="panel-kicker">Trend</p><h2>Thread tokens by creation date</h2></div>
+                <span class="muted-label" id="daily-range">Recent days</span>
+              </div>
+              <div class="daily-chart" id="daily-chart" role="img" aria-label="Thread tokens by creation date"></div>
+              <div class="empty-state is-hidden" id="daily-empty"><p>No daily usage history is available yet.</p></div>
+            </article>
+          </section>
+
+          <section class="view" id="view-threads" role="tabpanel" aria-labelledby="tab-threads" tabindex="0" data-view="threads" hidden>
+            <div class="section-heading">
+              <div><p class="eyebrow">Thread index</p><h2>Codex threads</h2><p>Search identifiers, project paths, models, sources, or agent nicknames.</p></div>
+              <span class="result-count" id="thread-result-count">—</span>
+            </div>
+            <article class="panel">
+              <div class="toolbar">
+                <label class="search-control" for="thread-search">
+                  <span class="sr-only">Search threads</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" /></svg>
+                  <input id="thread-search" type="search" inputmode="search" autocomplete="off" placeholder="Search thread ID, project, model, source…">
+                  <span class="search-spinner is-hidden" id="thread-search-spinner" aria-hidden="true"></span>
+                </label>
+                <button class="button button--secondary" id="thread-clear" type="button">Clear search</button>
+              </div>
+              <p class="inline-message is-hidden" id="threads-message" role="status"></p>
+              <div class="table-wrap">
+                <table>
+                  <caption class="sr-only">Codex thread metadata</caption>
+                  <thead><tr><th scope="col">Thread</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col">Tokens</th><th scope="col">Duration</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                  <tbody id="thread-list"></tbody>
+                </table>
+              </div>
+              <div class="empty-state is-hidden" id="threads-empty">
+                <span class="empty-icon" aria-hidden="true">⌁</span>
+                <div><strong>No matching threads</strong><p>Try a different search or refresh the local index.</p></div>
+              </div>
+              <div class="pagination">
+                <p id="thread-page-label">—</p>
+                <div>
+                  <button class="button button--secondary" id="thread-prev" type="button">Previous</button>
+                  <button class="button button--secondary" id="thread-next" type="button">Next</button>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="view" id="view-storage" role="tabpanel" aria-labelledby="tab-storage" tabindex="0" data-view="storage" hidden>
+            <div class="section-heading">
+              <div><p class="eyebrow">Disk footprint</p><h2>Local storage</h2><p>Inspect metadata inside the Codex home directory. Files are never opened by this interface.</p></div>
+              <span class="scan-time">Scanned <time id="storage-scan-time">—</time></span>
+            </div>
+            <p class="inline-message is-hidden" id="storage-message"></p>
+            <div class="storage-summary">
+              <article class="summary-tile"><span>Total footprint</span><strong id="storage-total">—</strong><small>Known Codex state and app data</small></article>
+              <article class="summary-tile"><span>Temporary files</span><strong id="storage-temp-count">—</strong><small id="storage-temp-size">— on disk</small></article>
+              <article class="summary-tile"><span>Open files</span><strong id="storage-open-count">—</strong><small>Observed handles</small></article>
+            </div>
+
+            <div class="dashboard-grid storage-top-grid">
+              <article class="panel">
+                <div class="panel-header"><div><p class="panel-kicker">Breakdown</p><h2>Storage groups</h2></div></div>
+                <div class="storage-group-list" id="storage-group-list"></div>
+                <div class="empty-state is-hidden" id="storage-groups-empty"><p>No storage groups were reported.</p></div>
+              </article>
+              <article class="panel">
+                <div class="panel-header"><div><p class="panel-kicker">Transient data</p><h2>Largest temporary entries</h2></div></div>
+                <div class="table-wrap compact-table-wrap">
+                  <table>
+                    <caption class="sr-only">Temporary file metadata</caption>
+                    <thead><tr><th scope="col">File</th><th scope="col">Size</th><th scope="col">Modified</th></tr></thead>
+                    <tbody id="temp-file-list"></tbody>
+                  </table>
+                </div>
+                <div class="empty-state is-hidden" id="temp-files-empty"><p>No temporary files were reported.</p></div>
+              </article>
+            </div>
+
+            <article class="panel rollout-panel">
+              <div class="panel-header"><div><p class="panel-kicker">Conversation history</p><h2>Largest chat rollouts</h2></div><span class="muted-label">Persistent — not cache</span></div>
+              <p class="inline-message is-hidden" id="rollout-scan-note"></p>
+              <p class="panel-note">Rollouts contain resumable thread history. Xedoc reports file metadata only and never offers deletion.</p>
+              <div class="table-wrap compact-table-wrap">
+                <table>
+                  <caption class="sr-only">Largest Codex chat rollout files</caption>
+                  <thead><tr><th scope="col">Rollout</th><th scope="col">Thread</th><th scope="col">Size</th><th scope="col">Modified</th></tr></thead>
+                  <tbody id="rollout-file-list"></tbody>
+                </table>
+              </div>
+              <div class="empty-state is-hidden" id="rollout-files-empty"><p>No rollout file metadata was reported.</p></div>
+            </article>
+
+            <article class="panel browser-panel">
+              <div class="panel-header browser-header">
+                <div><p class="panel-kicker">Metadata browser</p><h2>Codex home</h2></div>
+                <button class="button button--secondary" id="files-up" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 14 4-4 4 4" /></svg>
+                  Up one level
+                </button>
+              </div>
+              <nav class="breadcrumbs" id="file-breadcrumbs" aria-label="Current storage path"></nav>
+              <p class="inline-message is-hidden" id="files-message" role="status"></p>
+              <div class="table-wrap">
+                <table>
+                  <caption class="sr-only">Codex home file and directory metadata</caption>
+                  <thead><tr><th scope="col">Name</th><th scope="col">Kind</th><th scope="col">Size</th><th scope="col">Modified</th></tr></thead>
+                  <tbody id="file-list"></tbody>
+                </table>
+              </div>
+              <div class="empty-state is-hidden" id="files-empty"><p>This directory is empty or unavailable.</p></div>
+              <div class="pagination">
+                <p id="file-page-label">—</p>
+                <div>
+                  <button class="button button--secondary" id="file-prev" type="button">Previous</button>
+                  <button class="button button--secondary" id="file-next" type="button">Next</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel open-files-panel">
+              <div class="panel-header"><div><p class="panel-kicker">Runtime</p><h2>Observed open files</h2></div><span class="muted-label" id="open-files-label">Metadata only</span></div>
+              <div class="table-wrap compact-table-wrap">
+                <table>
+                  <caption class="sr-only">Open file metadata</caption>
+                  <thead><tr><th scope="col">Path</th><th scope="col">Process</th><th scope="col">Descriptor</th></tr></thead>
+                  <tbody id="open-file-list"></tbody>
+                </table>
+              </div>
+              <div class="empty-state is-hidden" id="open-files-empty"><p>No open file handles were reported.</p></div>
+            </article>
+          </section>
+
+          <section class="view" id="view-activity" role="tabpanel" aria-labelledby="tab-activity" tabindex="0" data-view="activity" hidden>
+            <div class="section-heading activity-heading">
+              <div><p class="eyebrow">Current work</p><h2>Thread activity</h2><p>Operational events, tools, and token counters — without message bodies.</p></div>
+              <label class="select-control" for="activity-thread-select"><span>Thread</span><select id="activity-thread-select"><option value="">Latest observed</option></select></label>
+            </div>
+            <div class="content-boundary-note">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.9 8.3 7 10 4.1-1.7 7-5.2 7-10V6l-7-3Z" /></svg>
+              <p><strong>Content boundary:</strong> this view renders event types and counters only. Prompt and response text is intentionally absent.</p>
+            </div>
+            <p class="inline-message is-hidden" id="activity-message" role="status"></p>
+            <div class="metric-grid activity-metrics">
+              <article class="mini-metric"><span>Thread ID</span><strong class="mono truncate" id="activity-thread-id">—</strong></article>
+              <article class="mini-metric"><span>Tokens</span><strong id="activity-token-total">—</strong><small id="activity-token-detail">Input — · Output —</small></article>
+              <article class="mini-metric"><span>Context</span><strong id="activity-context">—</strong><small id="activity-context-detail">Window unavailable</small></article>
+              <article class="mini-metric"><span>Recent turn time</span><strong id="activity-runtime">—</strong><small id="activity-runtime-detail">Timing unavailable</small></article>
+              <article class="mini-metric"><span>Events</span><strong id="activity-event-count">—</strong><small id="activity-tool-count">— tool calls</small></article>
+            </div>
+            <div class="dashboard-grid activity-grid">
+              <article class="panel">
+                <div class="panel-header"><div><p class="panel-kicker">Timeline</p><h2>Recent events</h2></div><span class="live-chip"><span></span>Live snapshot</span></div>
+                <ol class="event-list" id="activity-event-list"></ol>
+                <div class="empty-state is-hidden" id="activity-events-empty"><p>No operational events are available for this thread.</p></div>
+              </article>
+              <article class="panel">
+                <div class="panel-header"><div><p class="panel-kicker">Operations</p><h2>Tool calls</h2></div></div>
+                <div class="tool-list" id="activity-tool-list"></div>
+                <div class="empty-state is-hidden" id="activity-tools-empty"><p>No tool-call metadata is available for this thread.</p></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="view" id="view-about" role="tabpanel" aria-labelledby="tab-about" tabindex="0" data-view="about" hidden>
+            <div class="about-hero">
+              <span class="about-mark" aria-hidden="true">
+                <svg viewBox="0 0 72 72"><path d="M36 8a28 28 0 1 0 28 28" /><path d="M36 19a17 17 0 1 0 17 17" /><circle cx="36" cy="36" r="5" /><path d="M36 36 61 11" /></svg>
+              </span>
+              <p class="eyebrow">About Xedoc</p>
+              <h2>Codex, in plain sight.</h2>
+              <p>Xedoc is a local observability dashboard for understanding what Codex is doing on your machine — in operational terms developers can inspect.</p>
+            </div>
+            <div class="dashboard-grid about-grid">
+              <article class="panel">
+                <div class="panel-header"><div><p class="panel-kicker">Privacy</p><h2>What this UI displays</h2></div></div>
+                <ul class="check-list">
+                  <li><span aria-hidden="true">✓</span><div><strong>Metadata, not conversations</strong><p>Thread IDs, timestamps, counts, model labels, and operational status.</p></div></li>
+                  <li><span aria-hidden="true">✓</span><div><strong>File facts, not file content</strong><p>Names, paths, sizes, kinds, and modification times within the scoped Codex home.</p></div></li>
+                  <li><span aria-hidden="true">✓</span><div><strong>Local, read-only requests</strong><p>The dashboard only requests local inspection endpoints and offers no delete or edit actions.</p></div></li>
+                </ul>
+              </article>
+              <article class="panel">
+                <div class="panel-header"><div><p class="panel-kicker">Collection</p><h2>Data sources</h2></div></div>
+                <ul class="source-list" id="source-list"></ul>
+                <div class="empty-state is-hidden" id="sources-empty"><p>The server did not describe its data sources.</p></div>
+              </article>
+            </div>
+            <article class="panel privacy-details">
+              <div class="panel-header"><div><p class="panel-kicker">Server declaration</p><h2>Privacy &amp; scope</h2></div></div>
+              <dl class="detail-list detail-list--wide" id="privacy-list"></dl>
+              <p class="muted-copy" id="privacy-fallback">Xedoc is designed for local use. Verify the bind address and access controls of the local server before using it on a shared machine.</p>
+            </article>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <div class="sr-only" id="app-live-region" aria-live="polite"></div>
+  </body>
+</html>
