@@ -499,7 +499,14 @@
     const storage = isObject(state.snapshot.storage) ? state.snapshot.storage : {};
     const logs = isObject(state.snapshot.logs) ? state.snapshot.logs : {};
     const goals = isObject(state.snapshot.goals) ? state.snapshot.goals : null;
-    setText("codex-version", codex.version ? `Version ${codex.version}` : "Version —");
+    const rawVersion = cleanText(codex.version, "");
+    const cliVersion = rawVersion.match(/^codex-cli\s+(.+)$/i);
+    const versionLabel = cliVersion
+      ? `CLI ${cliVersion[1]}`
+      : rawVersion && rawVersion !== "unavailable" ? rawVersion : "CLI unavailable";
+    setText("codex-version", versionLabel);
+    const versionElement = $("#codex-version");
+    if (versionElement) versionElement.title = rawVersion ? `Installed command: ${rawVersion}` : "Installed Codex CLI version unavailable";
     setText("codex-home", cleanText(codex.home));
     const home = $("#codex-home");
     if (home) home.title = cleanText(codex.home, "");

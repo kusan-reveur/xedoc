@@ -184,9 +184,7 @@ export class CodexInspector {
     const overview = this.readOverview(paths.state);
     const logs = this.readLogs(paths.logs);
     const goals = this.readGoals(paths.goals);
-    const versionPromise = overview.latest?.thread?.cliVersion
-      ? Promise.resolve(`codex-cli ${overview.latest.thread.cliVersion}`)
-      : this.codexVersion();
+    const version = await this.codexVersion();
     const runtimePromise = this.processCache.get(() => collectProcesses());
 
     const activityPromise = this.recentActivity({
@@ -195,10 +193,9 @@ export class CodexInspector {
       threadId: overview.latest?.thread?.id || null,
     });
 
-    const [runtime, storage, version, activity, largestRollouts] = await Promise.all([
+    const [runtime, storage, activity, largestRollouts] = await Promise.all([
       runtimePromise,
       storagePromise,
-      versionPromise,
       activityPromise,
       this.largestRollouts(paths.state),
     ]);
