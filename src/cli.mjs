@@ -1,29 +1,9 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
+import { launchDashboard } from "./browser-launcher.mjs";
 import { CodexInspector } from "./inspector.mjs";
 import { displayPath, HELP, parseArgs } from "./config.mjs";
 import { createXedocServer, listen } from "./server.mjs";
-
-function openBrowser(url) {
-  let command;
-  let args;
-  if (process.platform === "darwin") {
-    command = "/usr/bin/open";
-    args = [url];
-  } else if (process.platform === "win32") {
-    command = "cmd.exe";
-    args = ["/c", "start", "", url];
-  } else {
-    command = "xdg-open";
-    args = [url];
-  }
-  const child = spawn(command, args, { detached: true, stdio: "ignore", windowsHide: true });
-  child.once("error", (error) => {
-    console.warn(`xedoc: could not open the browser automatically (${error.message}).`);
-  });
-  child.unref();
-}
 
 async function main() {
   let options;
@@ -60,10 +40,10 @@ async function main() {
   const dashboardUrl = `${address.url}#token=${encodeURIComponent(token)}`;
   console.log(`Dashboard:   ${dashboardUrl}`);
   console.log(`Codex home: ${displayPath(options.codexHome)}`);
-  console.log("Privacy:    loopback-only, read-only, no analytics, no remote assets");
+  console.log("Privacy:    loopback-only UI, read-only, no analytics; Insights uses cached fixed providers");
   console.log("Press Ctrl+C to stop.");
 
-  if (options.open) openBrowser(dashboardUrl);
+  launchDashboard(dashboardUrl, { open: options.open });
   const shutdown = () => {
     const forceClose = setTimeout(() => server.closeAllConnections?.(), 1_500);
     forceClose.unref();

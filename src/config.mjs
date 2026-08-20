@@ -18,7 +18,8 @@ export function isLoopbackHost(host) {
 }
 
 export function normalizeLoopbackHost(host) {
-  return String(host).trim().replace(/^\[|\]$/g, "");
+  const normalized = String(host).trim().replace(/^\[|\]$/g, "");
+  return normalized.toLowerCase() === "localhost" ? DEFAULT_HOST : normalized;
 }
 
 export function displayPath(value) {
@@ -38,7 +39,7 @@ export function parseArgs(argv) {
     port: DEFAULT_PORT,
     codexHome: resolveCodexHome(),
     sqliteHome: null,
-    open: false,
+    open: true,
     help: false,
   };
 
@@ -55,6 +56,7 @@ export function parseArgs(argv) {
     else if (argument === "--codex-home") options.codexHome = resolveCodexHome(next());
     else if (argument === "--sqlite-home") options.sqliteHome = path.resolve(next());
     else if (argument === "--open") options.open = true;
+    else if (argument === "--no-open") options.open = false;
     else if (argument === "--help" || argument === "-h") options.help = true;
     else throw new Error(`Unknown option: ${argument}`);
   }
@@ -81,6 +83,7 @@ Options:
   --port <number>      Port (default: 47831; use 0 for an available port)
   --codex-home <path>  Codex state directory (default: CODEX_HOME or ~/.codex)
   --sqlite-home <path> SQLite state directory (default: CODEX_SQLITE_HOME or CODEX_HOME)
-  --open               Open the dashboard in the default browser
+  --open               Open the dashboard in the default browser (default)
+  --no-open            Print the dashboard URL without opening it
   -h, --help           Show this help
 `;

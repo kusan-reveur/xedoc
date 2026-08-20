@@ -4,9 +4,10 @@
   const POLL_INTERVAL_MS = 5_000;
   const THREAD_LIMIT = 50;
   const DEFAULT_FILE_PAGE_SIZE = 100;
-  const TAB_ORDER = ["overview", "threads", "storage", "activity", "about"];
+  const TAB_ORDER = ["overview", "insights", "threads", "storage", "activity", "about"];
   const TAB_COPY = {
     overview: ["Overview", "A live view of Codex on this machine."],
+    insights: ["Insights", "Reset history and independent Codex model measurements."],
     threads: ["Threads", "Searchable local thread metadata."],
     storage: ["Storage", "A read-only view of the Codex disk footprint."],
     activity: ["Activity", "Operational events, tools, and usage counters."],
@@ -15,6 +16,12 @@
 
   const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
   const integerFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+  const currencyFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 3,
+  });
   const compactFormatter = new Intl.NumberFormat(undefined, {
     notation: "compact",
     compactDisplay: "short",
@@ -36,6 +43,12 @@
     pollTimer: null,
     relativeTimer: null,
     threadDebounce: null,
+    insights: {
+      data: null,
+      loading: false,
+      loaded: false,
+      controller: null,
+    },
     threads: {
       items: [],
       total: null,
@@ -128,6 +141,11 @@
   function formatPercent(value) {
     const numeric = toNumber(value);
     return numeric === null ? "—" : `${numberFormatter.format(numeric)}%`;
+  }
+
+  function formatCurrency(value) {
+    const numeric = toNumber(value);
+    return numeric === null ? "—" : currencyFormatter.format(numeric);
   }
 
   function formatDuration(secondsValue) {
@@ -561,6 +579,106 @@
     } else {
       setText("daily-range", "Recent days");
     }
+  }
+
+  async function loadInsights() {
+    if (state.insights.loading) return;
+    state.insights.controller?.abort();
+    const controller = new AbortController();
+    state.insights.controller = controller;
+    state.insights.loading = true;
+    setInlineMessage("insights-message", state.insights.loaded ? "Refreshing external data…" : "Loading external data…", "info");
+    try {
+      state.insights.data = await apiFetch("/api/insights", { signal: controller.signal });
+      state.insights.loaded = true;
+      setInlineMessage("insights-message", "");
+      renderInsights();
+    } catch (error) {
+      if (error?.name !== "AbortError") setInlineMessage("insights-message", readableError(error));
+    } finally {
+      if (state.insights.controller === controller) state.insights.controller = null;
+      state.insights.loading = false;
+    }
+  }
+
+  function renderInsights() {
+    const insights = isObject(state.insights.data) ? state.insights.data : {};
+    const resets = isObject(insights.resets) ? insights.resets : {};
+    const modelsData = isObject(insights.models) ? insights.models : {};
+    const resetsAvailable = resets.available === true;
+    const resetItems = resetsAvailable ? asArray(resets.items) : [];
+    const modelsAvailable = modelsData.available === true;
+    const models = modelsAvailable ? asArray(modelsData.models) : [];
+
+    const providerFetchTimes = [resets.fetchedAt, modelsData.fetchedAt]
+      .map((value) => parseDate(value)?.getTime())
+      .filter((value) => Number.isFinite(value));
+    setRelativeElement($("#insights-updated"), providerFetchTimes.length ? Math.max(...providerFetchTimes) : null);
+    setRelativeElement($("#resets-fetched-at"), resets.fetchedAt);
+    setRelativeElement($("#models-fetched-at"), modelsData.fetchedAt);
+    setText("reset-count", resetsAvailable ? formatInteger(firstDefined(resets.count, resetItems.length)) : "—");
+    setRelativeElement($("#reset-latest"), resetsAvailable ? resets.latestAt : null);
+    const averageDays = resetsAvailable ? toNumber(resets.averageIntervalDays) : null;
+    setText("reset-average", averageDays === null ? "—" : `${numberFormatter.format(averageDays)} days`);
+
+    const resetList = $("#reset-history-list");
+    clearElement(resetList);
+    resetItems.forEach((reset) => {
+      const row = document.createElement("tr");
+      const announced = createElement("time", "reset-time", formatDate(reset?.announcedAt));
+      const parsed = parseDate(reset?.announcedAt);
+      if (parsed) announced.dateTime = parsed.toISOString();
+      const sourceUrl = cleanText(reset?.sourceUrl, "");
+      let source = "—";
+      if (/^https:\/\/(?:x\.com|twitter\.com)\//.test(sourceUrl)) {
+        source = createElement("a", "row-link", "View post ↗");
+        source.href = sourceUrl;
+        source.target = "_blank";
+        source.rel = "noreferrer noopener";
+      }
+      row.append(
+        createCell("Announced", announced),
+        createCell("Announcement", cleanText(reset?.text, "Reset announcement"), "reset-copy"),
+        createCell("Source", source),
+      );
+      resetList?.append(row);
+    });
+    toggleHidden("reset-history-table-wrap", resetItems.length === 0);
+    toggleHidden("reset-history-empty", resetItems.length > 0);
+    setText($("#reset-history-empty p"), resetsAvailable
+      ? "No reset announcements were returned for the past 30 days."
+      : cleanText(resets.reason, "Codex reset history is unavailable."));
+
+    const performanceList = $("#model-performance-list");
+    clearElement(performanceList);
+    const rankedCoding = models.map((model) => toNumber(model?.codingIndex)).filter((value) => value !== null);
+    const bestCoding = rankedCoding.length ? Math.max(...rankedCoding) : null;
+    models.forEach((model) => {
+      const row = document.createElement("tr");
+      const codingIndex = toNumber(model?.codingIndex);
+      if (codingIndex !== null && codingIndex === bestCoding) row.classList.add("is-leading");
+      const modelName = createElement("div", "model-name-cell");
+      modelName.append(createElement("strong", "", cleanText(model?.name, "Unnamed Codex model")));
+      const slug = cleanText(model?.slug, "");
+      if (slug) modelName.append(createElement("small", "mono", slug));
+      const speed = toNumber(model?.outputTokensPerSecond);
+      row.append(
+        createCell("Codex model", modelName),
+        createCell("Coding index", codingIndex === null ? "—" : numberFormatter.format(codingIndex)),
+        createCell("Intelligence", toNumber(model?.intelligenceIndex) === null ? "—" : numberFormatter.format(model.intelligenceIndex)),
+        createCell("Cost/task", formatCurrency(model?.costPerTask)),
+        createCell("End-to-end", formatDuration(model?.endToEndSeconds)),
+        createCell("Output speed", speed === null ? "—" : `${numberFormatter.format(speed)} tok/s`),
+      );
+      performanceList?.append(row);
+    });
+    toggleHidden("model-performance-table-wrap", models.length === 0);
+    toggleHidden("model-performance-empty", models.length > 0);
+    setText($("#model-performance-empty p"), modelsAvailable
+      ? "The free API returned no benchmarked OpenAI Codex models."
+      : cleanText(modelsData.reason, "Model performance data is unavailable."));
+    const version = toNumber(modelsData.intelligenceIndexVersion);
+    setText("model-performance-note", `Coding and intelligence indices are higher-is-better. Cost/task is Artificial Analysis benchmark cost, not your Codex bill.${version === null ? "" : ` Intelligence Index v${version}.`}${modelsData.limited ? " Results are partial because a collection or display safety limit was reached." : ""}`);
   }
 
   function renderHealth() {
@@ -1273,6 +1391,7 @@
     document.title = nextTab === "overview" ? "Xedoc — Codex, in plain sight." : `${title} — Xedoc`;
     if (updateHash && window.location.hash !== `#${nextTab}`) history.pushState(null, "", `#${nextTab}`);
     if (updateHash) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    if (nextTab === "insights" && !state.insights.loaded) loadInsights();
     if (nextTab === "threads" && !state.threads.loaded) loadThreads();
     if (nextTab === "storage" && !state.files.loaded) loadFiles({ path: "", offset: 0 });
     if (nextTab === "activity") renderActivity();
@@ -1284,6 +1403,7 @@
     if (button?.disabled) return;
     if (button) button.disabled = true;
     const jobs = [loadSnapshot({ manual: true })];
+    if (state.activeTab === "insights") jobs.push(loadInsights());
     if (state.activeTab === "threads") jobs.push(loadThreads());
     if (state.activeTab === "storage") jobs.push(loadFiles());
     await Promise.allSettled(jobs);

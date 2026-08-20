@@ -1,6 +1,10 @@
 import os from "node:os";
 import { displayPath } from "./config.mjs";
 import { collectRecentActivity } from "./collectors/activity.mjs";
+import {
+  collectArtificialAnalysisModels,
+  collectResetHistory,
+} from "./collectors/external.mjs";
 import { collectOpenFiles, collectProcesses } from "./collectors/processes.mjs";
 import {
   describeDatabase,
@@ -35,10 +39,22 @@ const EMPTY_LOG_HEALTH = {
   targets: [],
 };
 
+function publicExternalReason(error, fallback) {
+  const message = String(error?.message || "");
+  return /^(?:The remote API|Network requests are unavailable)/.test(message) ? message : fallback;
+}
+
 export class CodexInspector {
-  constructor({ codexHome, sqliteHome = codexHome } = {}) {
+  constructor({
+    codexHome,
+    sqliteHome = codexHome,
+    fetchImpl = globalThis.fetch,
+    artificialAnalysisApiKey = process.env.ARTIFICIAL_ANALYSIS_API_KEY,
+  } = {}) {
     this.codexHome = codexHome;
     this.sqliteHome = sqliteHome;
+    this.fetchImpl = fetchImpl;
+    this.artificialAnalysisApiKey = artificialAnalysisApiKey;
     this.databaseCache = new TtlCache(10_000);
     this.storageCache = new TtlCache(60_000);
     this.processCache = new TtlCache(2_000);
@@ -46,6 +62,8 @@ export class CodexInspector {
     this.activityCache = new Map();
     this.activityTtlMs = 10_000;
     this.rolloutCache = new TtlCache(60_000);
+    this.resetHistoryCache = new TtlCache(5 * 60_000);
+    this.modelPerformanceCache = new TtlCache(12 * 60 * 60_000);
   }
 
   async recentActivity({ rolloutPath, thread = null, threadId = null } = {}) {
@@ -284,10 +302,12 @@ export class CodexInspector {
       goals,
       health: { warnings: healthWarnings },
       privacy: {
-        localOnly: true,
+        localServer: true,
+        localCodexMetadataStaysLocal: true,
         readOnly: true,
         analytics: false,
         remoteAssets: false,
+        externalInsights: "Codex Resets date range and optional Artificial Analysis API key only; no local Codex metadata is sent.",
         contentPolicy: "Xedoc reads only whitelisted metrics from recent rollout tails and never returns prompts, reasoning, commands, tool output, auth, or config contents.",
       },
       sources: [
@@ -345,6 +365,52 @@ export class CodexInspector {
     } catch {
       return { available: false, reason: "Thread activity metadata is unavailable.", threadId };
     }
+  }
+
+  async insights() {
+    const resetsPromise = this.resetHistoryCache
+      .get(() => collectResetHistory({ fetchImpl: this.fetchImpl }), {
+        staleIfError: true,
+        errorTtlMs: (error) => Math.max(60_000, Number(error?.retryAfterMs) || 0),
+        fallbackOnError: (error) => ({
+          available: false,
+          fetchedAt: null,
+          reason: publicExternalReason(error, "Codex reset history is temporarily unavailable."),
+          items: [],
+          count: null,
+          source: "Codex Resets",
+          sourceUrl: "https://codex-resets.com/",
+        }),
+      });
+    const modelsPromise = this.modelPerformanceCache
+      .get(() => collectArtificialAnalysisModels({
+        apiKey: this.artificialAnalysisApiKey,
+        fetchImpl: this.fetchImpl,
+      }), {
+        staleIfError: true,
+        errorTtlMs: (error) => Math.max(5 * 60_000, Number(error?.retryAfterMs) || 0),
+        fallbackOnError: (error) => ({
+          available: false,
+          configured: Boolean(this.artificialAnalysisApiKey),
+          fetchedAt: null,
+          reason: publicExternalReason(error, "Artificial Analysis data is temporarily unavailable."),
+          models: [],
+          count: null,
+          source: "Artificial Analysis",
+          sourceUrl: "https://artificialanalysis.ai/",
+        }),
+      });
+
+    const [resets, models] = await Promise.all([resetsPromise, modelsPromise]);
+    return {
+      generatedAt: Date.now(),
+      resets,
+      models,
+      network: {
+        enabled: true,
+        policy: "Fixed read-only providers, bounded responses, server-side caching, and no browser-visible API key.",
+      },
+    };
   }
 
   files(relativePath, options) {

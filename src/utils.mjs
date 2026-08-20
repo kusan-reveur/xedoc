@@ -5,13 +5,26 @@ import { promisify } from "node:util";
 
 const execFilePromise = promisify(execFile);
 
+const CHILD_ENV_SECRET_KEYS = ["ARTIFICIAL_ANALYSIS_API_KEY"];
+
+export function childEnvironment(source = process.env, additions = {}) {
+  const environment = { ...source, ...additions };
+  const secretKeys = new Set(CHILD_ENV_SECRET_KEYS.map((key) => key.toUpperCase()));
+  for (const key of Object.keys(environment)) {
+    if (secretKeys.has(key.toUpperCase())) delete environment[key];
+  }
+  return environment;
+}
+
 export async function runFile(command, args = [], options = {}) {
+  const environment = childEnvironment(options.env || process.env);
   return execFilePromise(command, args, {
     encoding: "utf8",
     maxBuffer: 8 * 1024 * 1024,
     timeout: 10_000,
     windowsHide: true,
     ...options,
+    env: environment,
   });
 }
 
@@ -106,10 +119,16 @@ export class TtlCache {
     this.ttlMs = ttlMs;
   }
 
-  async get(factory, { force = false } = {}) {
+  async get(factory, {
+    force = false,
+    staleIfError = false,
+    errorTtlMs = 0,
+    fallbackOnError = null,
+  } = {}) {
     const now = Date.now();
     if (!force && this.#value !== undefined && now < this.#expiresAt) return this.#value;
     if (this.#pending) return this.#pending;
+    const previousValue = this.#value;
 
     this.#pending = Promise.resolve()
       .then(factory)
@@ -117,6 +136,21 @@ export class TtlCache {
         this.#value = value;
         this.#expiresAt = Date.now() + this.ttlMs;
         return value;
+      })
+      .catch((error) => {
+        const errorTtl = typeof errorTtlMs === "function" ? errorTtlMs(error) : errorTtlMs;
+        const retryAt = Date.now() + Math.max(0, Number(errorTtl) || 0);
+        if (staleIfError && previousValue !== undefined) {
+          this.#expiresAt = retryAt;
+          return previousValue;
+        }
+        if (typeof fallbackOnError === "function") {
+          const value = fallbackOnError(error);
+          this.#value = value;
+          this.#expiresAt = retryAt;
+          return value;
+        }
+        throw error;
       })
       .finally(() => {
         this.#pending = null;

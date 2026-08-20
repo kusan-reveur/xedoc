@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { launchDashboard, openBrowser } from "../src/browser-launcher.mjs";
 import { parseArgs } from "../src/config.mjs";
 import { collectRecentActivity } from "../src/collectors/activity.mjs";
 import { collectLargestRollouts, listDirectory } from "../src/collectors/storage.mjs";
@@ -11,6 +12,41 @@ import { canonicalPathsOverlap, resolveSafeChild } from "../src/utils.mjs";
 test("configuration refuses non-loopback hosts", () => {
   assert.throws(() => parseArgs(["--host", "0.0.0.0"]), /local-only/);
   assert.equal(parseArgs(["--host", "::1", "--port", "0"]).host, "::1");
+  assert.equal(parseArgs(["--host", "localhost"]).host, "127.0.0.1");
+});
+
+test("launch opens the dashboard by default and supports an explicit no-open mode", () => {
+  assert.equal(parseArgs([]).open, true);
+  assert.equal(parseArgs(["--no-open"]).open, false);
+  assert.equal(parseArgs(["--no-open", "--open"]).open, true);
+
+  const launched = [];
+  assert.equal(launchDashboard("http://127.0.0.1/#token=test", {
+    open: parseArgs([]).open,
+    openImpl: (url) => launched.push(url),
+  }), true);
+  assert.equal(launchDashboard("http://127.0.0.1/#token=test", {
+    open: parseArgs(["--no-open"]).open,
+    openImpl: (url) => launched.push(url),
+  }), false);
+  assert.deepEqual(launched, ["http://127.0.0.1/#token=test"]);
+});
+
+test("browser launcher passes the full URL without inheriting provider credentials", () => {
+  let invocation;
+  const child = { once() {}, unref() {} };
+  openBrowser("http://127.0.0.1/#token=fragment", {
+    platform: "linux",
+    sourceEnvironment: { PATH: "/bin", Artificial_Analysis_Api_Key: "secret" },
+    spawnImpl: (command, args, options) => {
+      invocation = { command, args, options };
+      return child;
+    },
+  });
+  assert.equal(invocation.command, "xdg-open");
+  assert.deepEqual(invocation.args, ["http://127.0.0.1/#token=fragment"]);
+  assert.equal(invocation.options.env.PATH, "/bin");
+  assert.equal(invocation.options.env.Artificial_Analysis_Api_Key, undefined);
 });
 
 test("file browser stays inside CODEX_HOME and marks sensitive metadata", async (context) => {
