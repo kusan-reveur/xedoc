@@ -34,6 +34,17 @@
     minute: "2-digit",
   });
   const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+  const calendarWeekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" });
+  const calendarWeekdayLongFormatter = new Intl.DateTimeFormat(undefined, { weekday: "long", timeZone: "UTC" });
+  const calendarMonthFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+  const calendarMonthOnlyFormatter = new Intl.DateTimeFormat(undefined, { month: "long", timeZone: "UTC" });
+  const calendarDateFormatter = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
   let apiToken = "";
 
   const state = {
@@ -44,6 +55,12 @@
     relativeTimer: null,
     threadDebounce: null,
     insights: {
+      data: null,
+      loading: false,
+      loaded: false,
+      controller: null,
+    },
+    resetHistory: {
       data: null,
       loading: false,
       loaded: false,
@@ -170,6 +187,25 @@
       ? value
       : dateOnly ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])) : new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function parseUtcDateKey(value) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
+  }
+
+  function calendarRangeLabel(calendar) {
+    const start = parseUtcDateKey(calendar?.from);
+    const end = parseUtcDateKey(calendar?.to);
+    if (!start || !end) return "Past 30 days";
+    if (start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth()) {
+      return calendarMonthFormatter.format(start);
+    }
+    if (start.getUTCFullYear() === end.getUTCFullYear()) {
+      return `${calendarMonthOnlyFormatter.format(start)} – ${calendarMonthFormatter.format(end)}`;
+    }
+    return `${calendarMonthFormatter.format(start)} – ${calendarMonthFormatter.format(end)}`;
   }
 
   function formatDate(value) {
@@ -536,6 +572,7 @@
   function renderUsage() {
     const usage = isObject(state.snapshot.usage) ? state.snapshot.usage : {};
     const models = asArray(firstDefined(usage.byModel, usage.models));
+    const modelReasoning = asArray(usage.byModelReasoning);
     const modelList = $("#model-usage-list");
     clearElement(modelList);
     const modelValues = models.map((item) => tokenTotal(item)).filter((value) => value !== null);
@@ -544,6 +581,7 @@
       const total = tokenTotal(item);
       const input = firstNumber(item?.inputTokens, item?.input, item?.promptTokens);
       const output = firstNumber(item?.outputTokens, item?.output, item?.completionTokens);
+      const usageItem = createElement("div", "model-usage-item");
       const row = createElement("div", "bar-row");
       const label = createElement("div", "bar-label");
       label.append(
@@ -555,7 +593,26 @@
       progress.value = total || 0;
       progress.setAttribute("aria-label", `${cleanText(firstDefined(item?.model, item?.name, item?.key, item?.id), `Model ${index + 1}`)}: ${formatInteger(total)} tokens`);
       row.append(label, progress, createElement("span", "bar-value", formatCompact(total)));
-      modelList?.append(row);
+      usageItem.append(row);
+
+      const modelKey = cleanText(firstDefined(item?.model, item?.name, item?.key, item?.id), "");
+      const efforts = modelReasoning.filter((entry) => cleanText(entry?.key, "") === modelKey);
+      if (efforts.length) {
+        const breakdown = createElement("div", "reasoning-breakdown");
+        breakdown.setAttribute("aria-label", `${modelKey} tokens by thinking level`);
+        efforts.forEach((entry) => {
+          const effort = cleanText(entry?.reasoningEffort, "unknown");
+          const chip = createElement("span", "reasoning-chip");
+          chip.append(
+            createElement("strong", "", effort === "unknown" ? "Level unknown" : effort),
+            document.createTextNode(` ${formatCompact(tokenTotal(entry))}`),
+          );
+          chip.title = `${modelKey} · ${effort}: ${formatInteger(tokenTotal(entry))} tokens across ${formatInteger(entry?.threads)} tasks`;
+          breakdown.append(chip);
+        });
+        usageItem.append(breakdown);
+      }
+      modelList?.append(usageItem);
     });
     toggleHidden("model-usage-empty", models.length > 0);
 
@@ -593,49 +650,88 @@
     }
   }
 
-  async function loadInsights() {
-    if (state.insights.loading) return;
-    state.insights.controller?.abort();
-    const controller = new AbortController();
-    state.insights.controller = controller;
-    state.insights.loading = true;
-    setInlineMessage("insights-message", state.insights.loaded ? "Refreshing external data…" : "Loading external data…", "info");
-    try {
-      state.insights.data = await apiFetch("/api/insights", { signal: controller.signal });
-      state.insights.loaded = true;
-      setInlineMessage("insights-message", "");
-      renderInsights();
-    } catch (error) {
-      if (error?.name !== "AbortError") setInlineMessage("insights-message", readableError(error));
-    } finally {
-      if (state.insights.controller === controller) state.insights.controller = null;
-      state.insights.loading = false;
+  function renderResetCalendar(container, calendar) {
+    clearElement(container);
+    const days = calendar?.available === true ? asArray(calendar.days).slice(0, 49) : [];
+    if (!container || days.length === 0 || days.length % 7 !== 0) return false;
+
+    const range = calendarRangeLabel(calendar);
+    const resetDays = days.filter((day) => toNumber(day?.count) > 0);
+    container.setAttribute("aria-label", `${range} Codex reset announcement calendar in UTC; ${resetDays.length} announcement days`);
+
+    const monday = Date.UTC(2026, 0, 5);
+    const headerRow = createElement("div", "reset-calendar-row");
+    headerRow.setAttribute("role", "row");
+    for (let index = 0; index < 7; index += 1) {
+      const weekdayDate = new Date(monday + index * 86_400_000);
+      const weekday = createElement("div", "reset-calendar-weekday", calendarWeekdayFormatter.format(weekdayDate));
+      weekday.setAttribute("role", "columnheader");
+      weekday.setAttribute("aria-label", calendarWeekdayLongFormatter.format(weekdayDate));
+      headerRow.append(weekday);
     }
+    container.append(headerRow);
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    let calendarRow = null;
+    days.forEach((day, index) => {
+      if (index % 7 === 0) {
+        calendarRow = createElement("div", "reset-calendar-row");
+        calendarRow.setAttribute("role", "row");
+        container.append(calendarRow);
+      }
+      const date = parseUtcDateKey(day?.date);
+      if (!date) return;
+      const count = Math.max(0, Math.round(toNumber(day?.count) || 0));
+      const cell = createElement("div", "reset-calendar-day");
+      cell.setAttribute("role", "gridcell");
+      cell.classList.toggle("is-outside", day?.inWindow !== true);
+      cell.classList.toggle("has-reset", count > 0);
+      cell.classList.toggle("is-today", day.date === todayKey);
+      const dateLabel = calendarDateFormatter.format(date);
+      const status = day?.inWindow !== true
+        ? "outside the selected window"
+        : count > 0 ? `${count} reset announcement${count === 1 ? "" : "s"}` : "no reset announcements";
+      cell.setAttribute("aria-label", `${dateLabel}: ${status}`);
+      cell.title = `${dateLabel} · ${status}`;
+      const dayNumber = createElement("time", "reset-calendar-number", String(date.getUTCDate()));
+      dayNumber.dateTime = day.date;
+      cell.append(dayNumber);
+      if (count > 0) cell.append(createElement("span", "reset-calendar-count", String(count)));
+      calendarRow?.append(cell);
+    });
+    return true;
   }
 
-  function renderInsights() {
-    const insights = isObject(state.insights.data) ? state.insights.data : {};
-    const resets = isObject(insights.resets) ? insights.resets : {};
-    const modelsData = isObject(insights.models) ? insights.models : {};
-    const resetsAvailable = resets.available === true;
-    const resetItems = resetsAvailable ? asArray(resets.items) : [];
-    const modelsAvailable = modelsData.available === true;
-    const models = modelsAvailable ? asArray(modelsData.models) : [];
+  function renderResetHistory(resetsValue) {
+    const resets = isObject(resetsValue) ? resetsValue : {};
+    const available = resets.available === true;
+    const items = available ? asArray(resets.items) : [];
+    const calendar = isObject(resets.calendar) ? resets.calendar : {};
+    const overviewCalendarAvailable = renderResetCalendar($("#overview-reset-calendar"), calendar);
+    const insightsCalendarAvailable = renderResetCalendar($("#insights-reset-calendar"), calendar);
+    const calendarAvailable = overviewCalendarAvailable && insightsCalendarAvailable;
+    const range = calendarRangeLabel(calendar);
 
-    const providerFetchTimes = [resets.fetchedAt, modelsData.fetchedAt]
-      .map((value) => parseDate(value)?.getTime())
-      .filter((value) => Number.isFinite(value));
-    setRelativeElement($("#insights-updated"), providerFetchTimes.length ? Math.max(...providerFetchTimes) : null);
     setRelativeElement($("#resets-fetched-at"), resets.fetchedAt);
-    setRelativeElement($("#models-fetched-at"), modelsData.fetchedAt);
-    setText("reset-count", resetsAvailable ? formatInteger(firstDefined(resets.count, resetItems.length)) : "—");
-    setRelativeElement($("#reset-latest"), resetsAvailable ? resets.latestAt : null);
-    const averageDays = resetsAvailable ? toNumber(resets.averageIntervalDays) : null;
+    setText("reset-count", available ? formatInteger(firstDefined(resets.count, items.length)) : "—");
+    setText("overview-reset-count", available ? formatInteger(firstDefined(resets.count, items.length)) : "—");
+    setRelativeElement($("#reset-latest"), available ? resets.latestAt : null);
+    setRelativeElement($("#overview-reset-latest"), available ? resets.latestAt : null);
+    setText("overview-reset-range", range);
+    setText("insights-reset-range", `${range} · UTC`);
+    const averageDays = available ? toNumber(resets.averageIntervalDays) : null;
     setText("reset-average", averageDays === null ? "—" : `${numberFormatter.format(averageDays)} days`);
+    toggleHidden("overview-reset-calendar-shell", !calendarAvailable);
+    toggleHidden("insights-reset-calendar-shell", !calendarAvailable);
+    toggleHidden("insights-reset-calendar-empty", calendarAvailable);
+    setText($("#insights-reset-calendar-empty p"), cleanText(calendar.reason, "Reset calendar dates are unavailable."));
+    setInlineMessage("overview-reset-message", available
+      ? ""
+      : cleanText(resets.reason, "Codex reset history is unavailable."), available ? "info" : "warning");
 
     const resetList = $("#reset-history-list");
     clearElement(resetList);
-    resetItems.forEach((reset) => {
+    items.forEach((reset) => {
       const row = document.createElement("tr");
       const announced = createElement("time", "reset-time", formatDate(reset?.announcedAt));
       const parsed = parseDate(reset?.announcedAt);
@@ -655,11 +751,70 @@
       );
       resetList?.append(row);
     });
-    toggleHidden("reset-history-table-wrap", resetItems.length === 0);
-    toggleHidden("reset-history-empty", resetItems.length > 0);
-    setText($("#reset-history-empty p"), resetsAvailable
+    toggleHidden("reset-history-table-wrap", items.length === 0);
+    toggleHidden("reset-history-empty", items.length > 0);
+    setText($("#reset-history-empty p"), available
       ? "No reset announcements were returned for the past 30 days."
       : cleanText(resets.reason, "Codex reset history is unavailable."));
+  }
+
+  async function loadResetHistory() {
+    if (state.resetHistory.loading) return;
+    state.resetHistory.controller?.abort();
+    const controller = new AbortController();
+    state.resetHistory.controller = controller;
+    state.resetHistory.loading = true;
+    setInlineMessage("overview-reset-message", state.resetHistory.loaded ? "Refreshing reset calendar…" : "Loading reset calendar…", "info");
+    try {
+      const payload = await apiFetch("/api/resets", { signal: controller.signal });
+      state.resetHistory.data = isObject(payload?.resets) ? payload.resets : {};
+      state.resetHistory.loaded = true;
+      renderResetHistory(state.resetHistory.data);
+    } catch (error) {
+      if (error?.name !== "AbortError") setInlineMessage("overview-reset-message", readableError(error), "warning");
+    } finally {
+      if (state.resetHistory.controller === controller) state.resetHistory.controller = null;
+      state.resetHistory.loading = false;
+    }
+  }
+
+  async function loadInsights() {
+    if (state.insights.loading) return;
+    state.insights.controller?.abort();
+    const controller = new AbortController();
+    state.insights.controller = controller;
+    state.insights.loading = true;
+    setInlineMessage("insights-message", state.insights.loaded ? "Refreshing external data…" : "Loading external data…", "info");
+    try {
+      state.insights.data = await apiFetch("/api/insights", { signal: controller.signal });
+      state.insights.loaded = true;
+      if (isObject(state.insights.data?.resets)) {
+        state.resetHistory.data = state.insights.data.resets;
+        state.resetHistory.loaded = true;
+      }
+      setInlineMessage("insights-message", "");
+      renderInsights();
+    } catch (error) {
+      if (error?.name !== "AbortError") setInlineMessage("insights-message", readableError(error));
+    } finally {
+      if (state.insights.controller === controller) state.insights.controller = null;
+      state.insights.loading = false;
+    }
+  }
+
+  function renderInsights() {
+    const insights = isObject(state.insights.data) ? state.insights.data : {};
+    const resets = isObject(insights.resets) ? insights.resets : state.resetHistory.data;
+    const modelsData = isObject(insights.models) ? insights.models : {};
+    const modelsAvailable = modelsData.available === true;
+    const models = modelsAvailable ? asArray(modelsData.models) : [];
+
+    const providerFetchTimes = [resets?.fetchedAt, modelsData.fetchedAt]
+      .map((value) => parseDate(value)?.getTime())
+      .filter((value) => Number.isFinite(value));
+    setRelativeElement($("#insights-updated"), providerFetchTimes.length ? Math.max(...providerFetchTimes) : null);
+    setRelativeElement($("#models-fetched-at"), modelsData.fetchedAt);
+    renderResetHistory(resets);
 
     const performanceList = $("#model-performance-list");
     clearElement(performanceList);
@@ -1429,6 +1584,7 @@
     document.title = nextTab === "overview" ? "Xedoc — Codex, in plain sight." : `${title} — Xedoc`;
     if (updateHash && window.location.hash !== `#${nextTab}`) history.pushState(null, "", `#${nextTab}`);
     if (updateHash) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    if (nextTab === "overview" && !state.resetHistory.loaded) loadResetHistory();
     if (nextTab === "insights" && !state.insights.loaded) loadInsights();
     if (nextTab === "threads" && !state.threads.loaded) loadThreads();
     if (nextTab === "storage" && !state.files.loaded) loadFiles({ path: "", offset: 0 });
@@ -1441,6 +1597,7 @@
     if (button?.disabled) return;
     if (button) button.disabled = true;
     const jobs = [loadSnapshot({ manual: true })];
+    if (state.activeTab === "overview") jobs.push(loadResetHistory());
     if (state.activeTab === "insights") jobs.push(loadInsights());
     if (state.activeTab === "threads") jobs.push(loadThreads());
     if (state.activeTab === "storage") jobs.push(loadFiles());

@@ -148,6 +148,23 @@ export function queryThreadOverview(database, { recentLimit = 20, now = Date.now
     tokens: toFiniteNumber(row.tokens),
   }));
 
+  const byModelReasoning = database.prepare(`
+    SELECT
+      COALESCE(NULLIF(model, ''), NULLIF(model_provider, ''), 'unknown') AS key,
+      COALESCE(NULLIF(TRIM(reasoning_effort), ''), 'unknown') AS effort_key,
+      COUNT(*) AS threads,
+      SUM(tokens_used) AS tokens
+    FROM threads
+    GROUP BY key, effort_key
+    ORDER BY tokens DESC
+    LIMIT 96
+  `).all().map((row) => ({
+    key: row.key,
+    reasoningEffort: row.effort_key,
+    threads: toFiniteNumber(row.threads),
+    tokens: toFiniteNumber(row.tokens),
+  }));
+
   const rawDaily = database.prepare(`
     SELECT
       date(created_at, 'unixepoch', 'localtime') AS date,
@@ -175,6 +192,7 @@ export function queryThreadOverview(database, { recentLimit = 20, now = Date.now
       totalTokens: toFiniteNumber(statsRow.total_tokens),
     },
     byModel,
+    byModelReasoning,
     recentDaily: (() => {
       const observed = new Map(rawDaily.map((row) => [row.date, row]));
       return Array.from({ length: 14 }, (_unused, index) => {

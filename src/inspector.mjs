@@ -25,11 +25,13 @@ import {
   groupLargestRollouts,
   listDirectory,
 } from "./collectors/storage.mjs";
+import { buildResetCalendar } from "./reset-calendar.mjs";
 import { runFile, TtlCache } from "./utils.mjs";
 
 const EMPTY_THREAD_OVERVIEW = {
   stats: { threads: null, currentThreads: null, archivedThreads: null, activeThreads: null, totalTokens: null },
   byModel: [],
+  byModelReasoning: [],
   recentDaily: [],
   recentThreads: [],
   latest: null,
@@ -311,6 +313,7 @@ export class CodexInspector {
       storage,
       usage: {
         byModel: overview.byModel,
+        byModelReasoning: overview.byModelReasoning,
         recentDaily: overview.recentDaily,
         trendNote: "Daily tokens are thread totals grouped by thread creation date, not billing usage.",
       },
@@ -385,8 +388,8 @@ export class CodexInspector {
     }
   }
 
-  async insights() {
-    const resetsPromise = this.resetHistoryCache
+  async resetHistory() {
+    const resets = await this.resetHistoryCache
       .get(() => collectResetHistory({ fetchImpl: this.fetchImpl }), {
         staleIfError: true,
         errorTtlMs: (error) => Math.max(60_000, Number(error?.retryAfterMs) || 0),
@@ -400,7 +403,11 @@ export class CodexInspector {
           sourceUrl: "https://codex-resets.com/",
         }),
       });
-    const modelsPromise = this.modelPerformanceCache
+    return { ...resets, calendar: buildResetCalendar(resets) };
+  }
+
+  async modelPerformance() {
+    return this.modelPerformanceCache
       .get(() => collectArtificialAnalysisModels({
         apiKey: this.artificialAnalysisApiKey,
         fetchImpl: this.fetchImpl,
@@ -418,8 +425,10 @@ export class CodexInspector {
           sourceUrl: "https://artificialanalysis.ai/",
         }),
       });
+  }
 
-    const [resets, models] = await Promise.all([resetsPromise, modelsPromise]);
+  async insights() {
+    const [resets, models] = await Promise.all([this.resetHistory(), this.modelPerformance()]);
     return {
       generatedAt: Date.now(),
       resets,

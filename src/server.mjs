@@ -138,6 +138,11 @@ export function createXedocServer({ inspector, host = "127.0.0.1", token = rando
           json(response, 200, result, headOnly);
           return;
         }
+        if (url.pathname === "/api/resets") {
+          const resets = await inspector.resetHistory();
+          json(response, 200, { generatedAt: Date.now(), resets }, headOnly);
+          return;
+        }
         if (url.pathname === "/api/files") {
           if ((url.searchParams.get("scope") || "codex") !== "codex") {
             json(response, 400, { error: "Unsupported file scope" }, headOnly);

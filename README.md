@@ -7,6 +7,7 @@
 - Codex/ChatGPT process count, OS-reported CPU, aggregate RSS, and uptime
 - Strict Codex-worker memory separately from the wider host-app process family
 - Thread counts, models, reasoning effort, source, timestamps, lifespan, and recorded tokens
+- Observed thread-token totals by model, split by Codex reasoning/thinking level when recorded
 - Token breakdown for the most recently active rollout, including cached and reasoning tokens
 - Exact recent turn runtime and median time-to-first-token when those events are available
 - Storage grouped into conversation history, logs, indexes, extensions, artifacts, caches, and runtime state
@@ -14,7 +15,7 @@
 - A safe, lazy file browser for metadata under `CODEX_HOME`
 - Warning/error counts and targets from structured logs without log bodies
 - Goal token/time accounting when explicit Codex goals exist
-- Codex reset announcements from the past 30 days via the public Codex Resets API
+- Codex reset announcement calendars in Overview and Insights, plus the past 30 days of source history from the public Codex Resets API
 - Independently measured Codex model coding, intelligence, cost, latency, and speed data from Artificial Analysis
 
 Xedoc deliberately does **not** estimate the cost of your local work. Local ChatGPT/Codex subscription token activity is not equivalent to API billing. Any cost shown in Insights is Artificial Analysis's benchmark cost per task.
@@ -68,14 +69,14 @@ Xedoc is read-only by design:
 - only parses one bounded selected/recent rollout tail at a time and whitelists known numeric/status fields;
 - refuses to browse through symbolic links.
 
-The Insights panel makes read-only outbound requests from the local server to two fixed providers and caches them independently from the five-second local snapshot loop:
+The Overview reset calendar and Insights panel make read-only outbound requests from the local server to two fixed providers and cache them independently from the five-second local snapshot loop:
 
 - `codex-resets.com` receives a UTC `from`/`to` range covering the past 30 days plus bounded sort/pagination controls;
 - `artificialanalysis.ai` receives its API key and page number, but no local Codex metadata, paths, thread IDs, prompts, or usage data.
 
 As with any network request, each provider can also observe normal connection metadata such as the source IP and request time.
 
-Artificial Analysis data is cached in memory for 12 hours; reset history is cached for five minutes. Provider failures affect only the corresponding Insights panel. No third-party response or credential is written to disk by Xedoc.
+Artificial Analysis data is cached in memory for 12 hours; reset history is cached for five minutes. Provider failures affect only the corresponding external-data panel. No third-party response or credential is written to disk by Xedoc.
 
 External reads are capped at five pages, 500 reset records or 1,000 model records, and aggregate JSON budgets of 4 MiB for resets or 8 MiB for models. The dashboard marks results as partial when a cap is reached.
 

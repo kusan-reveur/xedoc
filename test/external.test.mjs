@@ -7,6 +7,7 @@ import {
   parseResetHistory,
 } from "../src/collectors/external.mjs";
 import { CodexInspector } from "../src/inspector.mjs";
+import { buildResetCalendar } from "../src/reset-calendar.mjs";
 import { childEnvironment, TtlCache } from "../src/utils.mjs";
 
 function jsonResponse(value, init = {}) {
@@ -61,6 +62,40 @@ test("reset history keeps string IDs, validates sources, and respects the reques
   assert.equal(result.items[0].id, "1956789012345678901");
   assert.equal(result.items[0].text, "Usage reset announced.");
   assert.equal(result.items[0].sourceUrl, "https://x.com/thsottiaux/status/1956789012345678901");
+});
+
+test("reset calendar groups UTC announcement days into complete Monday-first weeks", () => {
+  const calendar = buildResetCalendar({
+    available: true,
+    from: "2026-07-21T12:00:00.000Z",
+    to: "2026-08-20T12:00:00.000Z",
+    items: [
+      { announcedAt: "2026-08-10T01:00:00.000Z" },
+      { announcedAt: "2026-08-10T23:59:00.000Z" },
+      { announcedAt: "2026-07-20T23:59:00.000Z" },
+    ],
+  });
+
+  assert.equal(calendar.available, true);
+  assert.equal(calendar.gridFrom, "2026-07-20");
+  assert.equal(calendar.gridTo, "2026-08-23");
+  assert.equal(calendar.days.length, 35);
+  assert.equal(calendar.days.find((day) => day.date === "2026-08-10").count, 2);
+  assert.equal(calendar.days.find((day) => day.date === "2026-07-20").inWindow, false);
+});
+
+test("reset calendar reports unavailable history without inventing dates", () => {
+  assert.deepEqual(buildResetCalendar({ available: false, reason: "offline" }), {
+    available: false,
+    timezone: "UTC",
+    weekStartsOn: "monday",
+    from: null,
+    to: null,
+    gridFrom: null,
+    gridTo: null,
+    days: [],
+    reason: "offline",
+  });
 });
 
 test("external text strips Unicode direction controls", () => {
@@ -331,6 +366,23 @@ test("insights requests are single-flight and child processes do not inherit the
   assert.equal(environment.ARTIFICIAL_ANALYSIS_API_KEY, undefined);
   assert.equal(environment.Artificial_Analysis_Api_Key, undefined);
   assert.equal(environment.PATH, "/bin");
+});
+
+test("reset-only inspection does not request model benchmark data", async () => {
+  const hosts = [];
+  const inspector = new CodexInspector({
+    codexHome: "/tmp/xedoc-reset-only-test",
+    artificialAnalysisApiKey: "not-needed-for-resets",
+    fetchImpl: async (url) => {
+      hosts.push(new URL(url).hostname);
+      return jsonResponse({ data: [], pagination: { has_more: false, next_cursor: null }, meta: {} });
+    },
+  });
+
+  const resets = await inspector.resetHistory();
+  assert.deepEqual(hosts, ["codex-resets.com"]);
+  assert.equal(resets.available, true);
+  assert.equal(resets.calendar.available, true);
 });
 
 test("provider failures are negatively cached and an expired success can be served stale", async () => {

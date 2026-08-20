@@ -10,6 +10,7 @@ test("HTTP server keeps its token out of static responses and protects metadata 
     threads: async () => ({ data: [], total: 0 }),
     activity: async (threadId) => ({ available: true, threadId, events: [] }),
     insights: async () => ({ generatedAt: 2, resets: { items: [] }, models: { models: [] } }),
+    resetHistory: async () => ({ available: true, calendar: { days: [] } }),
     files: async () => ({ data: [], total: 0 }),
   };
   const { server } = createXedocServer({ inspector, token });
@@ -39,6 +40,8 @@ test("HTTP server keeps its token out of static responses and protects metadata 
   assert.equal(unauthorizedActivity.status, 401);
   const unauthorizedInsights = await fetch(`${address.url}api/insights`);
   assert.equal(unauthorizedInsights.status, 401);
+  const unauthorizedResets = await fetch(`${address.url}api/resets`);
+  assert.equal(unauthorizedResets.status, 401);
 
   const authorized = await fetch(`${address.url}api/snapshot`, {
     headers: { "X-Xedoc-Token": token },
@@ -57,6 +60,12 @@ test("HTTP server keeps its token out of static responses and protects metadata 
   });
   assert.equal(insights.status, 200);
   assert.equal((await insights.json()).generatedAt, 2);
+
+  const resets = await fetch(`${address.url}api/resets`, {
+    headers: { "X-Xedoc-Token": token },
+  });
+  assert.equal(resets.status, 200);
+  assert.equal((await resets.json()).resets.available, true);
 
   const crossOrigin = await fetch(`${address.url}api/snapshot`, {
     headers: { "X-Xedoc-Token": token, Origin: "https://example.com" },
@@ -79,6 +88,7 @@ test("listen refuses a non-loopback bind even for a loopback-configured server",
     threads: async () => ({ data: [], total: 0 }),
     activity: async () => ({ available: false }),
     insights: async () => ({}),
+    resetHistory: async () => ({ available: false }),
     files: async () => ({ data: [], total: 0 }),
   };
   const { server } = createXedocServer({ inspector });

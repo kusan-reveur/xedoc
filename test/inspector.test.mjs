@@ -9,6 +9,7 @@ test("snapshot reports the installed CLI version instead of the latest task writ
   inspector.readOverview = () => ({
     stats: { threads: 1, currentThreads: 1, archivedThreads: 0, activeThreads: 0, totalTokens: 0 },
     byModel: [],
+    byModelReasoning: [],
     recentDaily: [],
     recentThreads: [],
     latest: {

@@ -124,6 +124,29 @@
               </article>
             </div>
 
+            <article class="panel overview-reset-panel" aria-labelledby="overview-reset-title">
+              <div class="panel-header">
+                <div><p class="panel-kicker">Public signal · past 30 days</p><h2 id="overview-reset-title">Codex reset calendar</h2></div>
+                <button class="text-button" type="button" data-go-tab="insights">View history</button>
+              </div>
+              <div class="overview-reset-layout">
+                <div class="overview-reset-summary">
+                  <strong id="overview-reset-count">—</strong>
+                  <span>announcements</span>
+                  <p>Latest <time id="overview-reset-latest">—</time></p>
+                  <small>Unofficial public announcements, shown by UTC date.</small>
+                </div>
+                <div class="reset-calendar-shell reset-calendar-shell--compact is-hidden" id="overview-reset-calendar-shell">
+                  <div class="reset-calendar-heading">
+                    <strong id="overview-reset-range">Past 30 days</strong>
+                    <span>UTC</span>
+                  </div>
+                  <div class="reset-calendar reset-calendar--compact" id="overview-reset-calendar" role="grid" aria-label="Codex reset announcement calendar"></div>
+                </div>
+              </div>
+              <p class="inline-message" id="overview-reset-message" role="status">Loading reset calendar…</p>
+            </article>
+
             <div class="dashboard-grid dashboard-grid--runtime">
               <article class="panel runtime-panel">
                 <div class="panel-header">
@@ -174,8 +197,8 @@
             <div class="dashboard-grid">
               <article class="panel usage-panel">
                 <div class="panel-header">
-                  <div><p class="panel-kicker">Usage</p><h2>Tokens by model</h2></div>
-                  <span class="muted-label">Observed totals</span>
+                  <div><p class="panel-kicker">Usage</p><h2>Tokens by model &amp; thinking level</h2></div>
+                  <span class="muted-label">Thread totals</span>
                 </div>
                 <div class="bar-list" id="model-usage-list"></div>
                 <div class="empty-state is-hidden" id="model-usage-empty"><p>No model usage metadata is available yet.</p></div>
@@ -225,6 +248,16 @@
                 <div><span>Average interval</span><strong id="reset-average">—</strong></div>
               </div>
               <p class="panel-note">These are unofficial announcements tracked from public posts. Announcement time may differ from the moment a reset occurred.</p>
+              <div class="reset-calendar-section">
+                <div class="reset-calendar-heading">
+                  <div><p class="panel-kicker">Calendar view</p><h3>Announcement days</h3></div>
+                  <span id="insights-reset-range">Past 30 days · UTC</span>
+                </div>
+                <div class="reset-calendar-shell is-hidden" id="insights-reset-calendar-shell">
+                  <div class="reset-calendar" id="insights-reset-calendar" role="grid" aria-label="Codex reset announcement calendar"></div>
+                </div>
+                <div class="empty-state is-hidden" id="insights-reset-calendar-empty"><p>Reset calendar dates are unavailable.</p></div>
+              </div>
               <div class="table-wrap insights-table-wrap" id="reset-history-table-wrap">
                 <table class="insights-table">
                   <caption class="sr-only">Codex reset announcements from the past 30 days</caption>
@@ -421,7 +454,7 @@
                 <ul class="check-list">
                   <li><span aria-hidden="true">✓</span><div><strong>Metadata, not conversations</strong><p>Thread IDs, timestamps, counts, model labels, and operational status.</p></div></li>
                   <li><span aria-hidden="true">✓</span><div><strong>File facts, not file content</strong><p>Names, paths, sizes, kinds, and modification times within the scoped Codex home.</p></div></li>
-                  <li><span aria-hidden="true">✓</span><div><strong>Read-only requests</strong><p>Local inspection stays local; the Insights panel uses two fixed, cached third-party data sources and offers no write actions.</p></div></li>
+                  <li><span aria-hidden="true">✓</span><div><strong>Read-only requests</strong><p>Local inspection stays local; the Overview reset calendar and Insights panel use two fixed, cached third-party data sources and offer no write actions.</p></div></li>
                 </ul>
               </article>
               <article class="panel">
