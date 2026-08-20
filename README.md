@@ -10,7 +10,7 @@
 - Token breakdown for the most recently active rollout, including cached and reasoning tokens
 - Exact recent turn runtime and median time-to-first-token when those events are available
 - Storage grouped into conversation history, logs, indexes, extensions, artifacts, caches, and runtime state
-- The largest indexed rollout files (bounded to recent candidates), app caches/logs, and same-user Codex-like entries in the system temp directory
+- The largest task histories, with linked subagent rollouts grouped under compact session-index task names and unlinked subagents labeled separately, plus app caches/logs and same-user Codex-like entries in the system temp directory
 - A safe, lazy file browser for metadata under `CODEX_HOME`
 - Warning/error counts and targets from structured logs without log bodies
 - Goal token/time accounting when explicit Codex goals exist
@@ -63,7 +63,8 @@ Xedoc is read-only by design:
 - contains no analytics, remote assets, or package dependencies;
 - opens Codex SQLite databases in read-only/query-only mode;
 - never offers delete, cleanup, archive, or configuration actions;
-- never returns auth/config contents, prompts, reasoning, commands, patches, tool output, log bodies, attachments, or browser data;
+- never reads or returns raw auth/config contents, prompt/message fields, reasoning, commands, patches, tool output, log bodies, attachments, or browser data;
+- displays only a bounded compact `thread_name` from Codex's session index to identify grouped task history; it never substitutes the SQLite title/preview fields, which may contain full opening messages;
 - only parses one bounded selected/recent rollout tail at a time and whitelists known numeric/status fields;
 - refuses to browse through symbolic links.
 
@@ -78,7 +79,7 @@ Artificial Analysis data is cached in memory for 12 hours; reset history is cach
 
 External reads are capped at five pages, 500 reset records or 1,000 model records, and aggregate JSON budgets of 4 MiB for resets or 8 MiB for models. The dashboard marks results as partial when a cap is reached.
 
-Paths, filenames, thread IDs, process names, and repository locations are still metadata and may be sensitive. Treat screenshots and screen sharing accordingly.
+Task names, paths, filenames, thread IDs, process names, and repository locations are still metadata and may be sensitive. Treat screenshots and screen sharing accordingly.
 
 The unauthenticated loopback root serves only the static dashboard shell. A local process or another OS account still needs the secret URL fragment to query metadata; anyone who can read your terminal output or browser session should be treated as authorized while Xedoc is running.
 
@@ -94,6 +95,7 @@ Xedoc discovers these sources rather than assuming a fixed version suffix:
 
 - `CODEX_HOME` (normally `~/.codex`) for sessions, archives, logs, artifacts, plugins, packages, and cache state
 - the newest compatible `state_*.sqlite`, `logs_*.sqlite`, and optional `goals_*.sqlite`
+- `session_index.jsonl` for bounded task-name lookups after the largest histories have been selected
 - a selected or newest rollout path indexed by the state database
 - OS process tables and open-file metadata where permissions allow
 - macOS Codex app support, cache, update-cache, log, and HTTP-storage directories

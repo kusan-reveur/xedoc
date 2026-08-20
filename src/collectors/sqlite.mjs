@@ -275,7 +275,23 @@ export function queryLogHealth(database, { now = Date.now() } = {}) {
 export function queryRolloutCandidates(database, { limit = 5_000 } = {}) {
   const safeLimit = Math.max(1, Math.min(5_000, Number(limit) || 5_000));
   const rows = database.prepare(`
-    SELECT id, rollout_path AS rolloutPath, archived
+    SELECT
+      id,
+      rollout_path AS rolloutPath,
+      archived,
+      cwd,
+      CASE
+        WHEN json_valid(source)
+        THEN json_extract(source, '$.subagent.thread_spawn.parent_thread_id')
+        ELSE NULL
+      END AS parentThreadId,
+      CASE
+        WHEN lower(replace(COALESCE(thread_source, ''), '_', '')) LIKE '%subagent%'
+          OR json_type(CASE WHEN json_valid(source) THEN source END, '$.subagent') IS NOT NULL
+        THEN 1
+        ELSE 0
+      END AS isSubagent,
+      substr(COALESCE(agent_nickname, ''), 1, 121) AS agentNickname
     FROM threads
     WHERE rollout_path <> ''
     ORDER BY recency_at_ms DESC, updated_at_ms DESC, id DESC
@@ -284,6 +300,21 @@ export function queryRolloutCandidates(database, { limit = 5_000 } = {}) {
   rows.scanLimited = rows.length > safeLimit;
   if (rows.scanLimited) rows.length = safeLimit;
   return rows;
+}
+
+export function queryRolloutTaskMetadata(database, threadIds) {
+  const ids = [...new Set((threadIds || []).map(String).filter(Boolean))].slice(0, 100);
+  if (!ids.length) return new Map();
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = database.prepare(`
+    SELECT id, cwd, archived
+    FROM threads
+    WHERE id IN (${placeholders})
+  `).all(...ids);
+  return new Map(rows.map((row) => [String(row.id), {
+    cwd: row.cwd ? displayPath(row.cwd) : null,
+    archived: Boolean(row.archived),
+  }]));
 }
 
 export function queryThreadActivityCandidate(database, threadId) {

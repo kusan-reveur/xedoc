@@ -204,6 +204,11 @@
     return text.length > 18 ? `${text.slice(0, 8)}…${text.slice(-6)}` : text;
   }
 
+  function pathLeaf(value) {
+    const text = cleanText(value, "").replaceAll("\\", "/").replace(/\/+$/, "");
+    return text.split("/").filter(Boolean).at(-1) || text;
+  }
+
   function setText(id, value) {
     const element = typeof id === "string" ? document.getElementById(id) : id;
     if (element) element.textContent = cleanText(value);
@@ -800,19 +805,45 @@
     clearElement(rolloutList);
     rollouts.slice(0, 24).forEach((file) => {
       const row = document.createElement("tr");
-      const rolloutPath = createElement("span", "mono truncate", cleanText(firstDefined(file?.path, file?.relativePath), "Unknown rollout"));
-      rolloutPath.title = rolloutPath.textContent;
+      const id = cleanText(firstDefined(file?.threadId, file?.id), "");
+      const cwd = cleanText(firstDefined(file?.cwd, file?.projectPath), "");
+      const indexedName = cleanText(firstDefined(file?.taskName, file?.threadName), "");
+      const unlinkedSubagent = Boolean(file?.unlinkedSubagent);
+      const agentNickname = cleanText(file?.agentNickname, "");
+      const taskName = unlinkedSubagent
+        ? agentNickname ? `Subagent ${agentNickname}` : "Unlinked subagent history"
+        : indexedName || (cwd ? `Untitled task in ${pathLeaf(cwd)}` : id ? `Untitled task ${shortId(id)}` : "Untitled task");
+      const primary = createElement("div", "table-primary rollout-task-primary");
+      const icon = createElement("span", "table-icon");
+      icon.append(createSvgIcon("thread"));
+      const copy = createElement("span", "table-primary-text rollout-task-copy");
+      const title = createElement("strong", "", taskName);
+      title.title = taskName;
+      const statusAndProject = [
+        unlinkedSubagent ? "Parent task unavailable" : file?.archived ? "Archived" : "Current",
+        cwd || null,
+      ].filter(Boolean).join(" · ");
+      const context = createElement("small", "rollout-project-line", statusAndProject);
+      context.title = cwd;
+      const idKind = unlinkedSubagent ? "Subagent ID" : "Task ID";
+      const taskId = createElement("small", "mono rollout-task-id", id ? `${idKind} ${id}` : `${idKind} unavailable`);
+      taskId.title = id;
+      const largestPathValue = cleanText(firstDefined(file?.largestRolloutPath, file?.path, file?.relativePath), "");
+      const largestPath = createElement("small", "mono rollout-path-line", largestPathValue ? `Largest file ${largestPathValue}` : "Largest file unavailable");
+      largestPath.title = largestPathValue;
+      copy.append(title, context, taskId, largestPath);
+      primary.append(icon, copy);
       row.append(
-        createCell("Rollout", rolloutPath),
-        createCell("Thread", shortId(firstDefined(file?.threadId, file?.id)), "mono"),
-        createCell("Size", formatBytes(firstDefined(file?.bytes, file?.sizeBytes, file?.size))),
-        createCell("Modified", formatRelative(firstDefined(file?.modifiedAt, file?.mtime, file?.updatedAt))),
+        createCell("Task", primary),
+        createCell("Rollouts", formatInteger(firstDefined(file?.rolloutCount, 1))),
+        createCell("Total size", formatBytes(firstDefined(file?.bytes, file?.sizeBytes, file?.size))),
+        createCell("Updated", formatRelative(firstDefined(file?.modifiedAt, file?.mtime, file?.updatedAt))),
       );
       rolloutList?.append(row);
     });
     toggleHidden("rollout-files-empty", rollouts.length > 0);
     setInlineMessage("rollout-scan-note", storage.rolloutScanLimited
-      ? "Showing the largest files among the 5,000 most recently indexed rollout paths."
+      ? "Task totals are lower bounds grouped from the 5,000 most recently indexed rollout paths."
       : "", "info");
   }
 

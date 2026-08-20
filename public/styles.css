@@ -1631,6 +1631,28 @@ tbody tr:hover td {
   margin-top: 15px;
 }
 
+.rollout-task-primary {
+  min-width: min(440px, 52vw);
+  align-items: flex-start;
+}
+
+.rollout-task-copy strong,
+.rollout-task-copy small {
+  max-width: min(390px, 44vw);
+}
+
+.rollout-task-copy .rollout-task-id,
+.rollout-task-copy .rollout-path-line {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.rollout-task-copy .rollout-task-id {
+  color: var(--muted);
+}
+
 .panel-note {
   margin: -4px 0 14px;
   color: var(--faint);
@@ -2445,6 +2467,100 @@ tbody tr:hover td {
 
   .file-link {
     max-width: 58vw;
+  }
+
+  .rollout-table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .rollout-table-wrap table,
+  .rollout-table-wrap tbody,
+  .rollout-table-wrap tr,
+  .rollout-table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .rollout-table-wrap thead {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .rollout-table-wrap tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .rollout-table-wrap tr {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface);
+  }
+
+  .rollout-table-wrap td {
+    display: grid;
+    grid-template-columns: minmax(88px, 0.45fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 9px 12px;
+    text-align: right;
+  }
+
+  .rollout-table-wrap td::before {
+    color: var(--faint);
+    content: attr(data-label);
+    font-size: 0.58rem;
+    font-weight: 740;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .rollout-table-wrap td:first-child {
+    display: block;
+    padding: 14px 12px;
+    text-align: left;
+  }
+
+  .rollout-table-wrap td:first-child::before {
+    content: none;
+  }
+
+  .rollout-table-wrap td:last-child {
+    border-bottom: 0;
+  }
+
+  .rollout-task-primary,
+  .rollout-task-copy strong,
+  .rollout-task-copy small {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .rollout-task-copy strong {
+    display: -webkit-box;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .rollout-task-copy .rollout-project-line {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .detail-list > div {

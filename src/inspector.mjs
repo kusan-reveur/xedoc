@@ -12,6 +12,7 @@ import {
   queryGoalStats,
   queryLogHealth,
   queryRolloutCandidates,
+  queryRolloutTaskMetadata,
   queryThreadActivityCandidate,
   queryThreadOverview,
   queryThreads,
@@ -19,7 +20,9 @@ import {
 } from "./collectors/sqlite.mjs";
 import {
   collectLargestRollouts,
+  collectSessionIndexNames,
   collectStorage,
+  groupLargestRollouts,
   listDirectory,
 } from "./collectors/storage.mjs";
 import { runFile, TtlCache } from "./utils.mjs";
@@ -148,7 +151,25 @@ export class CodexInspector {
     return this.rolloutCache.get(async () => {
       try {
         const candidates = withReadonlyDatabase(databasePath, (database) => queryRolloutCandidates(database));
-        return collectLargestRollouts(candidates, this.codexHome, 24);
+        const rollouts = await collectLargestRollouts(candidates, this.codexHome, candidates.length || 1);
+        const groups = groupLargestRollouts(rollouts, candidates, 24);
+        const taskIds = groups.map((group) => group.threadId);
+        const names = await collectSessionIndexNames(this.codexHome, taskIds);
+        let metadata = new Map();
+        try {
+          metadata = withReadonlyDatabase(databasePath, (database) => queryRolloutTaskMetadata(database, taskIds));
+        } catch {
+          // The live thread index may move after file sizes have already been collected.
+        }
+        for (const group of groups) {
+          group.taskName = names.get(group.threadId) || null;
+          const task = metadata.get(group.threadId);
+          if (task) {
+            group.cwd = task.cwd;
+            group.archived = task.archived;
+          }
+        }
+        return groups;
       } catch {
         return [];
       }
@@ -238,8 +259,8 @@ export class CodexInspector {
     if (storage.rolloutScanLimited) {
       healthWarnings.push({
         level: "info",
-        title: "Largest-rollout scan used recent candidates",
-        detail: "Results are the largest files among the 5,000 most recently indexed rollout paths.",
+        title: "Task-history totals used recent rollout candidates",
+        detail: "Task totals are lower bounds grouped from the 5,000 most recently indexed rollout paths.",
       });
     }
     if (logs.errors24h > 0) {

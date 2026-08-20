@@ -9,6 +9,7 @@ import {
   queryGoalStats,
   queryLogHealth,
   queryRolloutCandidates,
+  queryRolloutTaskMetadata,
   queryThreadActivityCandidate,
   queryThreadOverview,
   queryThreads,
@@ -33,6 +34,9 @@ function fixtureDatabase() {
   `);
   insert.run("thread-a", "/tmp/a.jsonl", 1_787_227_000, 1_787_227_100, null, null, 1_787_227_100_000, "cli", "cli", "openai", "gpt-test", "high", "/tmp/project-a", 120, 0, 1, "0.1", null, null);
   insert.run("thread-b", "/tmp/b.jsonl", 1_787_226_000, 1_787_226_500, null, null, 1_787_226_500_000, "app", "subAgent", "openai", "gpt-test", "medium", "/tmp/project-b", 80, 1, 0, "0.1", "helper", "worker");
+  database.prepare("UPDATE threads SET source = ? WHERE id = ?").run(JSON.stringify({
+    subagent: { thread_spawn: { parent_thread_id: "thread-a" } },
+  }), "thread-b");
   database.prepare("INSERT INTO logs VALUES (?, 'WARN', 'codex::one')").run(1_787_227_150);
   database.prepare("INSERT INTO logs VALUES (?, 'ERROR', 'codex::two')").run(1_787_227_160);
   database.prepare("INSERT INTO thread_goals VALUES (50, 12, 'active')").run();
@@ -61,6 +65,15 @@ test("SQLite collectors return metadata aggregates without content columns", () 
     const rolloutCandidates = queryRolloutCandidates(database, { limit: 1 });
     assert.equal(rolloutCandidates.length, 1);
     assert.equal(rolloutCandidates.scanLimited, true);
+    const allRolloutCandidates = queryRolloutCandidates(database, { limit: 2 });
+    const childCandidate = allRolloutCandidates.find((candidate) => candidate.id === "thread-b");
+    assert.equal(childCandidate.parentThreadId, "thread-a");
+    assert.equal(childCandidate.isSubagent, 1);
+    assert.equal(childCandidate.agentNickname, "helper");
+    assert.deepEqual(queryRolloutTaskMetadata(database, ["thread-a"]).get("thread-a"), {
+      cwd: "/tmp/project-a",
+      archived: false,
+    });
 
     const logs = queryLogHealth(database, { now: 1_787_227_200_000 });
     assert.equal(logs.warnings24h, 1);
@@ -73,6 +86,35 @@ test("SQLite collectors return metadata aggregates without content columns", () 
       tokensUsed: 70,
       timeUsedSeconds: 20,
     });
+  } finally {
+    database.close();
+  }
+});
+
+test("rollout candidates identify subagents whose parent linkage is unavailable", () => {
+  const database = new DatabaseSync(":memory:");
+  try {
+    database.exec(`
+      CREATE TABLE threads (
+        id TEXT, rollout_path TEXT, archived INTEGER, cwd TEXT, source TEXT,
+        thread_source TEXT, agent_nickname TEXT, recency_at_ms INTEGER, updated_at_ms INTEGER
+      )
+    `);
+    database.prepare("INSERT INTO threads VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      "unlinked-agent",
+      "/tmp/unlinked.jsonl",
+      0,
+      "/tmp/project",
+      JSON.stringify({ subagent: { other: { origin: "internal" } } }),
+      "subAgent",
+      "reviewer",
+      2,
+      1,
+    );
+    const candidate = queryRolloutCandidates(database, { limit: 1 })[0];
+    assert.equal(candidate.parentThreadId, null);
+    assert.equal(candidate.isSubagent, 1);
+    assert.equal(candidate.agentNickname, "reviewer");
   } finally {
     database.close();
   }

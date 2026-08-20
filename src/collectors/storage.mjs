@@ -1,3 +1,4 @@
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -17,6 +18,10 @@ const MAX_TEMP_CANDIDATES = 512;
 const MAX_TEMP_MATCHES_INSPECTED = 4_096;
 const MAX_TEMP_ENTRIES_INSPECTED = 20_000;
 const MAX_ROLLOUT_CANDIDATES = 5_000;
+const MAX_SESSION_INDEX_BYTES = 4 * 1024 * 1024;
+const MAX_SESSION_INDEX_LINES = 20_000;
+const MAX_SESSION_INDEX_LINE_BYTES = 16 * 1024;
+const MAX_TASK_NAMES = 100;
 const MAX_BROWSER_ENTRIES = 10_000;
 const STAT_CONCURRENCY = 16;
 const MEASURE_DEADLINE_MS = 15_000;
@@ -347,6 +352,140 @@ export async function collectLargestRollouts(candidates, codexHome, limit = 20) 
   await Promise.all(workers);
   const result = rows.sort((left, right) => right.bytes - left.bytes).slice(0, limit);
   result.scanLimited = Boolean(allCandidates.scanLimited || allCandidates.length > MAX_ROLLOUT_CANDIDATES);
+  return result;
+}
+
+function cleanTaskName(value, maximum = 120) {
+  if (typeof value !== "string") return null;
+  const normalized = value
+    .replace(/[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return null;
+  return normalized.length > maximum
+    ? `${normalized.slice(0, Math.max(0, maximum - 1)).trimEnd()}…`
+    : normalized;
+}
+
+export async function collectSessionIndexNames(codexHome, threadIds) {
+  const wanted = new Set([...new Set((threadIds || []).map(String).filter(Boolean))].slice(0, MAX_TASK_NAMES));
+  const names = new Map();
+  if (!wanted.size) return names;
+
+  let handle;
+  try {
+    const indexPath = path.join(codexHome, "session_index.jsonl");
+    const sourceInfo = await fs.lstat(indexPath);
+    if (!sourceInfo.isFile() || sourceInfo.isSymbolicLink()) return names;
+    const safePath = await resolveContainedPath(codexHome, indexPath);
+    const noFollow = typeof fsConstants.O_NOFOLLOW === "number" ? fsConstants.O_NOFOLLOW : 0;
+    handle = await fs.open(safePath, fsConstants.O_RDONLY | noFollow);
+    const info = await handle.stat();
+    if (!info.isFile()) return names;
+    const bytesToRead = Math.min(info.size, MAX_SESSION_INDEX_BYTES);
+    const start = Math.max(0, info.size - bytesToRead);
+    const buffer = Buffer.alloc(bytesToRead);
+    const { bytesRead } = await handle.read(buffer, 0, bytesToRead, start);
+    let text = buffer.subarray(0, bytesRead).toString("utf8");
+    if (start > 0) {
+      const boundary = text.indexOf("\n");
+      if (boundary < 0) return names;
+      text = text.slice(boundary + 1);
+    }
+    let lineEnd = text.length;
+    let linesInspected = 0;
+    while (lineEnd >= 0 && linesInspected < MAX_SESSION_INDEX_LINES && names.size < wanted.size) {
+      const boundary = text.lastIndexOf("\n", Math.max(0, lineEnd - 1));
+      const line = text.slice(boundary + 1, lineEnd);
+      lineEnd = boundary <= 0 ? -1 : boundary;
+      linesInspected += 1;
+      if (!line || Buffer.byteLength(line) > MAX_SESSION_INDEX_LINE_BYTES) continue;
+      try {
+        const record = JSON.parse(line);
+        const id = typeof record?.id === "string" ? record.id : "";
+        if (!wanted.has(id) || names.has(id)) continue;
+        names.set(id, cleanTaskName(record?.thread_name));
+      } catch {
+        // A live append or incompatible record should not hide the remaining index.
+      }
+    }
+  } catch {
+    // The compact session-name index is optional and may move while Codex is active.
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+  return names;
+}
+
+function rootThreadId(threadId, candidatesById) {
+  let current = String(threadId || "");
+  const visited = new Set();
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const parent = candidatesById.get(current)?.parentThreadId;
+    if (!parent) return current;
+    current = String(parent);
+  }
+  return String(threadId || "");
+}
+
+export function groupLargestRollouts(rollouts, candidates, limit = 24) {
+  const candidatesById = new Map((candidates || []).map((candidate) => [String(candidate.id), candidate]));
+  const groups = new Map();
+  for (const rollout of rollouts || []) {
+    const taskId = rootThreadId(rollout.threadId, candidatesById);
+    if (!taskId) continue;
+    let group = groups.get(taskId);
+    if (!group) {
+      group = {
+        threadId: taskId,
+        bytes: 0,
+        allocatedBytes: 0,
+        allocationComplete: true,
+        modifiedAt: 0,
+        rolloutCount: 0,
+        largestRolloutPath: null,
+        largestRolloutBytes: -1,
+        memberArchived: true,
+        fallbackCwd: null,
+      };
+      groups.set(taskId, group);
+    }
+    group.bytes += Number(rollout.bytes) || 0;
+    if (Number.isFinite(rollout.allocatedBytes)) group.allocatedBytes += rollout.allocatedBytes;
+    else group.allocationComplete = false;
+    group.modifiedAt = Math.max(group.modifiedAt, Number(rollout.modifiedAt) || 0);
+    group.rolloutCount += 1;
+    group.memberArchived = group.memberArchived && Boolean(rollout.archived);
+    group.fallbackCwd ||= candidatesById.get(String(rollout.threadId))?.cwd || null;
+    if ((Number(rollout.bytes) || 0) > group.largestRolloutBytes) {
+      group.largestRolloutBytes = Number(rollout.bytes) || 0;
+      group.largestRolloutPath = rollout.path;
+    }
+  }
+
+  const result = [...groups.values()]
+    .map((group) => {
+      const root = candidatesById.get(group.threadId);
+      const unlinkedSubagent = Boolean(root?.isSubagent);
+      return {
+        threadId: group.threadId,
+        taskName: null,
+        unlinkedSubagent,
+        agentNickname: unlinkedSubagent ? cleanTaskName(root?.agentNickname, 80) : null,
+        cwd: root?.cwd ? displayPath(root.cwd) : group.fallbackCwd ? displayPath(group.fallbackCwd) : null,
+        archived: root ? Boolean(root.archived) : group.memberArchived,
+        rolloutCount: group.rolloutCount,
+        bytes: group.bytes,
+        allocatedBytes: group.allocationComplete ? group.allocatedBytes : null,
+        modifiedAt: group.modifiedAt || null,
+        largestRolloutPath: group.largestRolloutPath,
+      };
+    })
+    .sort((left, right) => right.bytes - left.bytes)
+    .slice(0, Math.max(1, Math.min(100, Number(limit) || 24)));
+  result.scanLimited = Boolean(rollouts?.scanLimited || candidates?.scanLimited);
   return result;
 }
 

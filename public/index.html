@@ -322,13 +322,13 @@
             </div>
 
             <article class="panel rollout-panel">
-              <div class="panel-header"><div><p class="panel-kicker">Conversation history</p><h2>Largest chat rollouts</h2></div><span class="muted-label">Persistent — not cache</span></div>
+              <div class="panel-header"><div><p class="panel-kicker">Conversation history</p><h2>Largest task histories</h2></div><span class="muted-label">Grouped · read-only</span></div>
               <p class="inline-message is-hidden" id="rollout-scan-note"></p>
-              <p class="panel-note">Rollouts contain resumable thread history. Xedoc reports file metadata only and never offers deletion.</p>
-              <div class="table-wrap compact-table-wrap">
+              <p class="panel-note">Xedoc groups task and subagent JSONL files under the parent task when linkage is available; unlinked subagent history is labeled separately. Use the session-index name, project, and full task ID to locate the task in Codex before archiving or deleting it there. Do not remove rollout JSONL files manually.</p>
+              <div class="table-wrap compact-table-wrap rollout-table-wrap">
                 <table>
-                  <caption class="sr-only">Largest Codex chat rollout files</caption>
-                  <thead><tr><th scope="col">Rollout</th><th scope="col">Thread</th><th scope="col">Size</th><th scope="col">Modified</th></tr></thead>
+                  <caption class="sr-only">Largest Codex task histories grouped from rollout files</caption>
+                  <thead><tr><th scope="col">Task</th><th scope="col">Rollouts</th><th scope="col">Total size</th><th scope="col">Updated</th></tr></thead>
                   <tbody id="rollout-file-list"></tbody>
                 </table>
               </div>
