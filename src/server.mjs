@@ -111,6 +111,11 @@ export function createXedocServer({ inspector, host = "127.0.0.1", token = rando
           json(response, 200, snapshot, headOnly);
           return;
         }
+        if (url.pathname === "/api/agents") {
+          const result = await inspector.agents({ force: url.searchParams.get("refresh") === "1" });
+          json(response, 200, result, headOnly);
+          return;
+        }
         if (url.pathname === "/api/threads") {
           const result = await inspector.threads({
             limit: clampInteger(url.searchParams.get("limit"), 1, 100, 50),

@@ -203,6 +203,9 @@ export function parseActivityLines(lines, { maxEvents = 28 } = {}) {
   let abortedTurns = 0;
   let completedRuntimeMs = 0;
   let abortedRuntimeMs = 0;
+  let turnRunning = false;
+  let turnStartedAt = null;
+  let turnStatusAt = null;
   let malformedLines = 0;
   let skippedLargeLines = 0;
 
@@ -260,7 +263,10 @@ export function parseActivityLines(lines, { maxEvents = 28 } = {}) {
       if (lastUsage) lastTokenUsage = tokenBreakdown(lastUsage);
       contextWindow = extractNumber(line, "model_context_window", payloadIndex, contextWindow);
     } else if (payloadType === "task_started") {
-      addEvent(publicEvent("turn", "Turn started", timestamp(extractNumber(line, "started_at", payloadIndex, occurredAt), occurredAt)));
+      turnStartedAt = timestamp(extractNumber(line, "started_at", payloadIndex, occurredAt), occurredAt);
+      turnStatusAt = turnStartedAt;
+      turnRunning = true;
+      addEvent(publicEvent("turn", "Turn started", turnStartedAt));
     } else if (payloadType === "task_complete") {
       const durationMs = extractNumber(line, "duration_ms", payloadIndex, 0);
       const turnKey = extractDirectString(line, "turn_id", payloadIndex) || `${occurredAt}:${durationMs}`;
@@ -271,7 +277,9 @@ export function parseActivityLines(lines, { maxEvents = 28 } = {}) {
         const ttft = extractNumber(line, "time_to_first_token_ms", payloadIndex, -1);
         if (ttft >= 0) timeToFirstToken.push(ttft);
       }
-      addEvent(publicEvent("turn", "Turn completed", timestamp(extractNumber(line, "completed_at", payloadIndex, occurredAt), occurredAt)));
+      turnStatusAt = timestamp(extractNumber(line, "completed_at", payloadIndex, occurredAt), occurredAt);
+      turnRunning = false;
+      addEvent(publicEvent("turn", "Turn completed", turnStatusAt));
     } else if (payloadType === "turn_aborted") {
       const turnKey = extractDirectString(line, "turn_id", payloadIndex) || `${occurredAt}:aborted`;
       if (!seenTurns.has(turnKey)) {
@@ -279,6 +287,8 @@ export function parseActivityLines(lines, { maxEvents = 28 } = {}) {
         abortedTurns += 1;
         abortedRuntimeMs += Math.max(0, extractNumber(line, "duration_ms", payloadIndex, 0));
       }
+      turnStatusAt = occurredAt;
+      turnRunning = false;
       addEvent(publicEvent("warning", "Turn interrupted", occurredAt));
     } else if (payloadType === "mcp_tool_call_end") {
       const invocationIndex = directObjectStart(line, "invocation", payloadIndex);
@@ -327,6 +337,9 @@ export function parseActivityLines(lines, { maxEvents = 28 } = {}) {
       abortedRuntimeMs: abortedTurns ? abortedRuntimeMs : null,
       medianTimeToFirstTokenMs: median(timeToFirstToken),
       sample: seenTurns.size,
+      running: turnRunning,
+      startedAt: turnRunning ? turnStartedAt : null,
+      statusAt: turnStatusAt,
     },
     parse: { malformedLines, skippedLargeLines },
   };

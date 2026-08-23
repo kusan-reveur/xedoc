@@ -7,6 +7,7 @@ test("HTTP server keeps its token out of static responses and protects metadata 
   const token = "a".repeat(64);
   const inspector = {
     snapshot: async () => ({ generatedAt: 1, privacy: { localOnly: true } }),
+    agents: async () => ({ generatedAt: 3, available: true, agents: [{ id: "agent-1" }] }),
     threads: async () => ({ data: [], total: 0 }),
     activity: async (threadId) => ({ available: true, threadId, events: [] }),
     insights: async () => ({ generatedAt: 2, resets: { items: [] }, modelProfiles: { models: [] } }),
@@ -36,6 +37,8 @@ test("HTTP server keeps its token out of static responses and protects metadata 
 
   const unauthorized = await fetch(`${address.url}api/snapshot`);
   assert.equal(unauthorized.status, 401);
+  const unauthorizedAgents = await fetch(`${address.url}api/agents`);
+  assert.equal(unauthorizedAgents.status, 401);
   const unauthorizedActivity = await fetch(`${address.url}api/activity?threadId=thread-1`);
   assert.equal(unauthorizedActivity.status, 401);
   const unauthorizedInsights = await fetch(`${address.url}api/insights`);
@@ -48,6 +51,12 @@ test("HTTP server keeps its token out of static responses and protects metadata 
   });
   assert.equal(authorized.status, 200);
   assert.deepEqual(await authorized.json(), { generatedAt: 1, privacy: { localOnly: true } });
+
+  const agents = await fetch(`${address.url}api/agents`, {
+    headers: { "X-Xedoc-Token": token },
+  });
+  assert.equal(agents.status, 200);
+  assert.equal((await agents.json()).agents[0].id, "agent-1");
 
   const activity = await fetch(`${address.url}api/activity?threadId=thread-1`, {
     headers: { "X-Xedoc-Token": token },
@@ -85,6 +94,7 @@ test("HTTP server keeps its token out of static responses and protects metadata 
 test("listen refuses a non-loopback bind even for a loopback-configured server", async () => {
   const inspector = {
     snapshot: async () => ({}),
+    agents: async () => ({ available: true, agents: [] }),
     threads: async () => ({ data: [], total: 0 }),
     activity: async () => ({ available: false }),
     insights: async () => ({}),

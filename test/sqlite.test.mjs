@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import {
   findVersionedDatabase,
+  queryAgentCandidates,
   queryGoalStats,
   queryLogHealth,
   queryRolloutCandidates,
@@ -73,6 +74,13 @@ test("SQLite collectors return metadata aggregates without content columns", () 
     assert.equal(overview.recentThreads[0].id, "thread-a");
     assert.equal(overview.recentThreads[0].tokens, 120);
     assert.equal(overview.recentDaily.length, 14);
+
+    const agentCandidates = queryAgentCandidates(database, { now: 1_787_227_200_000 });
+    assert.equal(agentCandidates.length, 1);
+    assert.equal(agentCandidates[0].id, "thread-a");
+    assert.equal(agentCandidates[0].model, "gpt-test");
+    assert.equal(agentCandidates[0].reasoningEffort, "high");
+    assert.equal(agentCandidates[0].isSubagent, false);
 
     const page = queryThreads(database, { query: "project-b", archived: "archived" });
     assert.equal(page.total, 1);

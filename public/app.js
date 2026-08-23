@@ -4,9 +4,10 @@
   const POLL_INTERVAL_MS = 5_000;
   const THREAD_LIMIT = 50;
   const DEFAULT_FILE_PAGE_SIZE = 100;
-  const TAB_ORDER = ["overview", "insights", "threads", "storage", "activity", "about"];
+  const TAB_ORDER = ["overview", "agents", "insights", "threads", "storage", "activity", "about"];
   const TAB_COPY = {
     overview: ["Overview", "A live view of Codex on this machine."],
+    agents: ["Agents", "Running Codex agents, models, and thinking levels."],
     insights: ["Insights", "Public reset history and local model usage by thinking level."],
     threads: ["Threads", "Searchable local thread metadata."],
     storage: ["Storage", "A read-only view of the Codex disk footprint."],
@@ -48,6 +49,12 @@
     pollTimer: null,
     relativeTimer: null,
     threadDebounce: null,
+    agents: {
+      data: null,
+      loading: false,
+      loaded: false,
+      controller: null,
+    },
     insights: {
       data: null,
       loading: false,
@@ -274,6 +281,7 @@
   function createSvgIcon(kind) {
     const definitions = {
       thread: [["path", { d: "M5 5.5h14v10H9l-4 3v-13Z" }]],
+      agent: [["circle", { cx: "7", cy: "7", r: "3" }], ["circle", { cx: "17", cy: "7", r: "3" }], ["circle", { cx: "12", cy: "17", r: "3" }], ["path", { d: "m9 9 2 5M15 9l-2 5M10 7h4" }]],
       process: [["rect", { x: "3.5", y: "4.5", width: "17", height: "15", rx: "2" }], ["path", { d: "m7 9 2.5 2L7 13M12 13h4" }]],
       folder: [["path", { d: "M3.5 6.5h6l2 2h9v10h-17v-12Z" }]],
       file: [["path", { d: "M6 3.5h8l4 4v13H6v-17Z" }], ["path", { d: "M14 3.5v4h4" }]],
@@ -428,6 +436,7 @@
       if (state.activeTab === "activity" && state.activityThreadId) {
         void loadActivity(state.activityThreadId, { silent: true });
       }
+      if (state.activeTab === "agents") void loadAgents({ silent: true });
       if (manual) announce("Dashboard refreshed.");
       return true;
     } catch (error) {
@@ -1006,6 +1015,101 @@
       : "", "info");
   }
 
+  async function loadAgents({ force = false, silent = false } = {}) {
+    if (state.agents.loading) return;
+    state.agents.controller?.abort();
+    const controller = new AbortController();
+    state.agents.controller = controller;
+    state.agents.loading = true;
+    if (!silent) setInlineMessage("agents-message", state.agents.loaded ? "Refreshing running agents…" : "Looking for running agents…", "info");
+    try {
+      const payload = await apiFetch(force ? "/api/agents?refresh=1" : "/api/agents", { signal: controller.signal });
+      if (state.agents.controller !== controller) return;
+      state.agents.data = isObject(payload) ? payload : {};
+      state.agents.loaded = true;
+      renderAgents();
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setInlineMessage("agents-message", readableError(error));
+        if (!state.agents.loaded) {
+          state.agents.data = { available: false, agents: [] };
+          renderAgents();
+        }
+      }
+    } finally {
+      if (state.agents.controller === controller) {
+        state.agents.controller = null;
+        state.agents.loading = false;
+      }
+    }
+  }
+
+  function renderAgents() {
+    const payload = isObject(state.agents.data) ? state.agents.data : {};
+    const available = payload.available === true;
+    const agents = available ? asArray(payload.agents) : [];
+    const subagents = agents.filter((agent) => agent?.kind === "subagent");
+    const models = new Set(agents.map((agent) => cleanText(agent?.model, "")).filter(Boolean));
+    setRelativeElement($("#agents-updated"), payload.generatedAt);
+    setText("agents-running-count", available ? formatInteger(agents.length) : "—");
+    setText("agents-subagent-count", available ? formatInteger(subagents.length) : "—");
+    setText("agents-model-count", available ? formatInteger(models.size) : "—");
+    setText("agents-inspected-count", available
+      ? `${formatInteger(payload.inspectedCandidates)}${payload.candidateScanLimited ? "+" : ""}`
+      : "—");
+
+    const list = $("#agents-list");
+    clearElement(list);
+    agents.forEach((agent) => {
+      const id = cleanText(agent?.id, "");
+      const nickname = cleanText(agent?.nickname, "");
+      const role = cleanText(agent?.role, "");
+      const isSubagent = agent?.kind === "subagent";
+      const name = nickname || (isSubagent
+        ? role ? formatKey(role) : `Subagent ${shortId(id)}`
+        : "Main agent");
+      const primary = createElement("div", "table-primary agent-primary");
+      const icon = createElement("span", "table-icon");
+      icon.append(createSvgIcon("agent"));
+      const copy = createElement("span", "table-primary-text");
+      const title = createElement("strong", "", name);
+      title.title = name;
+      const context = [isSubagent ? "Subagent" : "Main task", role && role !== nickname ? formatKey(role) : null, cleanText(agent?.project, "") || null]
+        .filter(Boolean)
+        .join(" · ");
+      const detail = createElement("small", "", context);
+      detail.title = context;
+      const identifier = createElement("small", "mono", id ? `ID ${id}` : "ID unavailable");
+      identifier.title = id;
+      copy.append(title, detail, identifier);
+      primary.append(icon, copy);
+
+      const started = document.createElement("time");
+      setRelativeElement(started, agent?.runningSince);
+      const observed = document.createElement("time");
+      setRelativeElement(observed, agent?.lastObservedAt);
+      const row = document.createElement("tr");
+      row.append(
+        createCell("Agent", primary),
+        createCell("Model", cleanText(agent?.model, "Unknown"), "agent-model"),
+        createCell("Thinking level", formatThinkingLevel(agent?.reasoningEffort), "agent-effort"),
+        createCell("Started", started),
+        createCell("Last activity", observed),
+        createCell("Tokens", formatCompact(agent?.tokens)),
+      );
+      list?.append(row);
+    });
+    toggleHidden("agents-table-wrap", agents.length === 0);
+    toggleHidden("agents-empty", agents.length > 0 || !available);
+    if (!available) {
+      setInlineMessage("agents-message", cleanText(payload.reason, "Running-agent metadata is unavailable."));
+    } else if (payload.candidateScanLimited) {
+      setInlineMessage("agents-message", "The candidate scan reached its safety limit; additional running agents may not be shown.", "info");
+    } else {
+      setInlineMessage("agents-message", "");
+    }
+  }
+
   function collectionFromPayload(payload, keys) {
     if (Array.isArray(payload)) return payload;
     for (const key of keys) {
@@ -1582,6 +1686,7 @@
     if (updateHash && window.location.hash !== `#${nextTab}`) history.pushState(null, "", `#${nextTab}`);
     if (updateHash) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     if (nextTab === "overview" && !state.resetHistory.loaded) loadResetHistory();
+    if (nextTab === "agents") loadAgents({ silent: state.agents.loaded });
     if (nextTab === "insights" && !state.insights.loaded) loadInsights();
     if (nextTab === "threads" && !state.threads.loaded) loadThreads();
     if (nextTab === "storage" && !state.files.loaded) loadFiles({ path: "", offset: 0 });
@@ -1595,6 +1700,7 @@
     if (button) button.disabled = true;
     const jobs = [loadSnapshot({ manual: true })];
     if (state.activeTab === "overview") jobs.push(loadResetHistory());
+    if (state.activeTab === "agents") jobs.push(loadAgents({ force: true }));
     if (state.activeTab === "insights") jobs.push(loadInsights());
     if (state.activeTab === "threads") jobs.push(loadThreads());
     if (state.activeTab === "storage") jobs.push(loadFiles());

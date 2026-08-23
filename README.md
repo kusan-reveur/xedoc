@@ -7,6 +7,7 @@
 - Codex/ChatGPT process count, OS-reported CPU, aggregate RSS, and uptime
 - Strict Codex-worker memory separately from the wider host-app process family
 - Thread counts, models, reasoning effort, source, timestamps, lifespan, and recorded tokens
+- Running main agents and subagents, including their model, thinking level, project, start time, and latest observed activity
 - Observed thread-token totals by model, split by Codex reasoning/thinking level when recorded
 - Token breakdown for the most recently active rollout, including cached and reasoning tokens
 - Exact recent turn runtime and median time-to-first-token when those events are available
@@ -107,6 +108,7 @@ OpenAI documents `CODEX_HOME`, `CODEX_SQLITE_HOME`, local session persistence, l
 - Process uptime is not developer working time.
 - Thread lifespan includes idle time.
 - Recent exact runtime covers only completed turn events found in the bounded rollout tail.
+- Running-agent detection requires an open turn in a bounded recent rollout tail and a file update within 15 minutes; stalled, moved, or unusually large records may be omitted.
 - Daily token bars assign a thread's current total to its creation date; they are not billing or a precise daily consumption ledger.
 - Cached input and reasoning output are subsets and are not added on top of total tokens.
 - Reset timestamps are unofficial announcement times, not guaranteed reset-occurrence times.

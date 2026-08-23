@@ -1654,6 +1654,41 @@ tbody tr:hover td {
   margin-bottom: 15px;
 }
 
+.agents-metrics {
+  margin-bottom: 15px;
+}
+
+.agent-primary {
+  min-width: 230px;
+}
+
+.agent-primary .table-icon {
+  color: var(--green);
+  background: rgba(23, 115, 74, 0.09);
+}
+
+.agent-kind {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 1px solid rgba(159, 18, 57, 0.2);
+  border-radius: 999px;
+  color: var(--violet);
+  background: rgba(159, 18, 57, 0.05);
+  font-size: 0.55rem;
+  font-weight: 720;
+}
+
+.agent-model,
+.agent-effort {
+  font-weight: 670;
+}
+
+.agent-effort {
+  text-transform: none;
+}
+
 .rollout-panel {
   margin-top: 15px;
 }
@@ -2560,7 +2595,7 @@ tbody tr:hover td {
 
   .primary-nav {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 3px;
     height: 100%;
     margin: 0;
@@ -2793,6 +2828,75 @@ tbody tr:hover td {
     border-bottom: 0;
   }
 
+  .agents-table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .agents-table-wrap table,
+  .agents-table-wrap tbody,
+  .agents-table-wrap tr,
+  .agents-table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .agents-table-wrap thead {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .agents-table-wrap tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .agents-table-wrap tr {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface);
+  }
+
+  .agents-table-wrap td {
+    display: grid;
+    grid-template-columns: minmax(96px, 0.45fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 9px 12px;
+    text-align: right;
+  }
+
+  .agents-table-wrap td::before {
+    color: var(--faint);
+    content: attr(data-label);
+    font-size: 0.58rem;
+    font-weight: 740;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .agents-table-wrap td:first-child {
+    display: block;
+    padding: 14px 12px;
+    text-align: left;
+  }
+
+  .agents-table-wrap td:first-child::before {
+    content: none;
+  }
+
+  .agents-table-wrap td:last-child {
+    border-bottom: 0;
+  }
+
   .rollout-task-primary,
   .rollout-task-copy strong,
   .rollout-task-copy small {
@@ -2828,6 +2932,10 @@ tbody tr:hover td {
 }
 
 @media (max-width: 470px) {
+  .nav-item span {
+    display: none;
+  }
+
   .connection #connection-label,
   .connection span:last-child {
     display: none;

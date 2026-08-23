@@ -62,12 +62,31 @@ test("activity parser whitelists metrics and keeps the latest cumulative token c
     abortedRuntimeMs: null,
     medianTimeToFirstTokenMs: 650,
     sample: 1,
+    running: false,
+    startedAt: null,
+    statusAt: Date.parse("2026-08-20T12:00:05.000Z"),
   });
   assert.equal(result.tools[0].name, "exec_command");
   assert.equal(result.tools[0].calls, 1);
   assert.equal(result.tools[0].completed, 1);
   const serialized = JSON.stringify(result);
   assert.doesNotMatch(serialized, /secret command|secret output|secret answer|base_instructions/);
+});
+
+test("activity parser identifies an open running turn", () => {
+  const result = parseActivityLines([
+    line("2026-08-20T12:00:01.000Z", "event_msg", {
+      type: "task_started",
+      started_at: Date.parse("2026-08-20T12:00:01.000Z") / 1_000,
+    }),
+    line("2026-08-20T12:00:02.000Z", "event_msg", {
+      type: "token_count",
+      info: { total_token_usage: { total_tokens: 50 } },
+    }),
+  ]);
+  assert.equal(result.turns.running, true);
+  assert.equal(result.turns.startedAt, Date.parse("2026-08-20T12:00:01.000Z"));
+  assert.equal(result.turns.statusAt, Date.parse("2026-08-20T12:00:01.000Z"));
 });
 
 test("activity parser deduplicates completed turns", () => {

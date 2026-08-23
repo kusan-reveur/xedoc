@@ -1,11 +1,13 @@
 import os from "node:os";
 import { displayPath } from "./config.mjs";
 import { collectRecentActivity } from "./collectors/activity.mjs";
+import { collectRunningAgents } from "./collectors/agents.mjs";
 import { collectResetHistory } from "./collectors/external.mjs";
 import { collectOpenFiles, collectProcesses } from "./collectors/processes.mjs";
 import {
   describeDatabase,
   findVersionedDatabase,
+  queryAgentCandidates,
   queryGoalStats,
   queryLogHealth,
   queryModelReasoningProfile,
@@ -62,6 +64,7 @@ export class CodexInspector {
     this.versionCache = new TtlCache(300_000);
     this.activityCache = new Map();
     this.activityTtlMs = 10_000;
+    this.agentsCache = new TtlCache(4_000);
     this.rolloutCache = new TtlCache(60_000);
     this.resetHistoryCache = new TtlCache(5 * 60_000);
   }
@@ -369,6 +372,46 @@ export class CodexInspector {
     } catch {
       return { data: [], total: 0, limit: options.limit, offset: options.offset, error: "Thread index unavailable." };
     }
+  }
+
+  async agents({ force = false } = {}) {
+    return this.agentsCache.get(async () => {
+      const paths = await this.databasePaths();
+      if (!paths.state) {
+        return {
+          available: false,
+          generatedAt: Date.now(),
+          reason: "State database unavailable.",
+          agents: [],
+          runningCount: null,
+        };
+      }
+      try {
+        const now = Date.now();
+        const candidates = withReadonlyDatabase(paths.state, (database) => queryAgentCandidates(database, { now }));
+        const scanLimited = Boolean(candidates.scanLimited);
+        const observed = await collectRunningAgents(candidates, { codexHome: this.codexHome, now });
+        return {
+          available: true,
+          generatedAt: Date.now(),
+          agents: observed.agents,
+          runningCount: observed.agents.length,
+          inspectedCandidates: observed.inspected,
+          candidateScanLimited: scanLimited,
+          freshnessWindowMs: observed.maxAgeMs,
+          tailBytesPerCandidate: observed.tailBytes,
+          detection: "Open task turns observed in bounded recent rollout tails.",
+        };
+      } catch {
+        return {
+          available: false,
+          generatedAt: Date.now(),
+          reason: "Running-agent metadata is unavailable.",
+          agents: [],
+          runningCount: null,
+        };
+      }
+    }, { force });
   }
 
   async activity(threadId) {

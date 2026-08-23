@@ -279,6 +279,52 @@ export function queryThreads(database, {
   };
 }
 
+export function queryAgentCandidates(database, {
+  now = Date.now(),
+  lookbackMs = 6 * 60 * 60_000,
+  limit = 24,
+} = {}) {
+  const safeLookbackMs = Math.max(5 * 60_000, Math.min(24 * 60 * 60_000, Number(lookbackMs) || 0));
+  const safeLimit = Math.max(1, Math.min(64, Number(limit) || 24));
+  const rows = database.prepare(`
+    SELECT
+      ${PUBLIC_THREAD_COLUMNS},
+      rollout_path,
+      CASE
+        WHEN lower(replace(COALESCE(thread_source, ''), '_', '')) LIKE '%subagent%'
+          OR json_type(CASE WHEN json_valid(source) THEN source END, '$.subagent') IS NOT NULL
+        THEN 1
+        ELSE 0
+      END AS is_subagent
+    FROM threads
+    WHERE archived = 0
+      AND rollout_path <> ''
+      AND COALESCE(NULLIF(recency_at_ms, 0), NULLIF(updated_at_ms, 0), updated_at * 1000) >= ?
+    ORDER BY recency_at_ms DESC, updated_at_ms DESC, id DESC
+    LIMIT ${safeLimit + 1}
+  `).all(now - safeLookbackMs);
+  const scanLimited = rows.length > safeLimit;
+  if (scanLimited) rows.length = safeLimit;
+  const candidates = rows.map((row) => {
+    const thread = publicThread(row);
+    return {
+      id: thread.id,
+      rolloutPath: row.rollout_path,
+      model: thread.model,
+      reasoningEffort: thread.reasoningEffort,
+      cwd: thread.cwd,
+      tokens: thread.tokens,
+      createdAt: thread.createdAt,
+      updatedAt: thread.updatedAt,
+      agentNickname: thread.agentNickname,
+      agentRole: thread.agentRole,
+      isSubagent: Boolean(row.is_subagent),
+    };
+  });
+  candidates.scanLimited = scanLimited;
+  return candidates;
+}
+
 export function queryLogHealth(database, { now = Date.now() } = {}) {
   const since = Math.floor(now / 1_000) - 86_400;
   const counts = database.prepare(`

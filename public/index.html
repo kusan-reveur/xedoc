@@ -35,6 +35,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /></svg>
             <span>Overview</span>
           </button>
+          <button class="nav-item" id="tab-agents" type="button" role="tab" aria-label="Running agents" aria-selected="false" aria-controls="view-agents" data-tab="agents" tabindex="-1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="3" /><circle cx="17" cy="7" r="3" /><circle cx="12" cy="17" r="3" /><path d="m9 9 2 5M15 9l-2 5M10 7h4" /></svg>
+            <span>Agents</span>
+          </button>
           <button class="nav-item" id="tab-insights" type="button" role="tab" aria-label="Usage and resets" aria-selected="false" aria-controls="view-insights" data-tab="insights" tabindex="-1">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M3 19h18" /><path d="m4 7 6-4 6 6 5-5" /></svg>
             <span>Insights</span>
@@ -223,6 +227,38 @@
               </div>
               <div class="daily-chart" id="daily-chart" role="img" aria-label="Thread tokens by creation date"></div>
               <div class="empty-state is-hidden" id="daily-empty"><p>No daily usage history is available yet.</p></div>
+            </article>
+          </section>
+
+          <section class="view" id="view-agents" role="tabpanel" aria-labelledby="tab-agents" tabindex="0" data-view="agents" hidden>
+            <div class="section-heading">
+              <div><p class="eyebrow">Live orchestration</p><h2>Running agents</h2><p>Open Codex turns, with the model and thinking level each agent is using.</p></div>
+              <span class="scan-time">Observed <time id="agents-updated">—</time></span>
+            </div>
+            <div class="content-boundary-note">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="3" /><circle cx="17" cy="7" r="3" /><circle cx="12" cy="17" r="3" /><path d="m9 9 2 5M15 9l-2 5M10 7h4" /></svg>
+              <p><strong>Running signal:</strong> an agent appears here while its latest observed turn is open and its rollout changed within the last 15 minutes.</p>
+            </div>
+            <p class="inline-message is-hidden" id="agents-message" role="status"></p>
+            <div class="metric-grid agents-metrics" aria-label="Running agent summary">
+              <article class="mini-metric"><span>Running</span><strong id="agents-running-count">—</strong><small>Open turns</small></article>
+              <article class="mini-metric"><span>Subagents</span><strong id="agents-subagent-count">—</strong><small>Delegated work</small></article>
+              <article class="mini-metric"><span>Models</span><strong id="agents-model-count">—</strong><small>In use now</small></article>
+              <article class="mini-metric"><span>Inspected</span><strong id="agents-inspected-count">—</strong><small>Recent candidates</small></article>
+            </div>
+            <article class="panel agents-panel">
+              <div class="panel-header">
+                <div><p class="panel-kicker">Current work</p><h2>Observed agents</h2></div>
+                <span class="live-chip"><span></span>Live</span>
+              </div>
+              <div class="table-wrap agents-table-wrap" id="agents-table-wrap">
+                <table class="agents-table">
+                  <caption class="sr-only">Running Codex agents with model and thinking-level metadata</caption>
+                  <thead><tr><th scope="col">Agent</th><th scope="col">Model</th><th scope="col">Thinking level</th><th scope="col">Started</th><th scope="col">Last activity</th><th scope="col">Tokens</th></tr></thead>
+                  <tbody id="agents-list"></tbody>
+                </table>
+              </div>
+              <div class="empty-state is-hidden" id="agents-empty"><span aria-hidden="true">✓</span><div><strong>No running agents detected</strong><p>Completed and interrupted turns are not shown.</p></div></div>
             </article>
           </section>
 
