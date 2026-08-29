@@ -136,3 +136,7 @@ pnpm dev
 ```
 
 The server and collectors use Node built-ins only. Tests cover privacy-safe JSONL parsing, read-only metadata queries, process-tree attribution, path containment/symlink rejection, and API session-token protection.
+
+## License
+
+MIT

@@ -2,6 +2,7 @@
   "name": "xedoc",
   "version": "0.1.0",
   "description": "A private, local-only observability dashboard for Codex.",
+  "license": "MIT",
   "type": "module",
   "private": true,
   "bin": {
