@@ -4,6 +4,7 @@
   const POLL_INTERVAL_MS = 5_000;
   const THREAD_LIMIT = 50;
   const DEFAULT_FILE_PAGE_SIZE = 100;
+  const DISPLAY_LOCALE = "en-US";
   const TAB_ORDER = ["overview", "agents", "insights", "threads", "storage", "activity", "about"];
   const TAB_COPY = {
     overview: ["Overview", "A live view of Codex on this machine."],
@@ -15,25 +16,25 @@
     about: ["About", "How Xedoc observes Codex while respecting content boundaries."],
   };
 
-  const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
-  const integerFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
-  const compactFormatter = new Intl.NumberFormat(undefined, {
+  const numberFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 1 });
+  const integerFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 0 });
+  const compactFormatter = new Intl.NumberFormat(DISPLAY_LOCALE, {
     notation: "compact",
     compactDisplay: "short",
     maximumFractionDigits: 1,
   });
-  const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  const dateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
-  const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: "short" });
-  const calendarWeekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" });
-  const calendarWeekdayLongFormatter = new Intl.DateTimeFormat(undefined, { weekday: "long", timeZone: "UTC" });
-  const calendarMonthFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
-  const calendarMonthOnlyFormatter = new Intl.DateTimeFormat(undefined, { month: "long", timeZone: "UTC" });
-  const calendarDateFormatter = new Intl.DateTimeFormat(undefined, {
+  const dayFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, { weekday: "short" });
+  const calendarWeekdayFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, { weekday: "short", timeZone: "UTC" });
+  const calendarWeekdayLongFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, { weekday: "long", timeZone: "UTC" });
+  const calendarMonthFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, { month: "long", year: "numeric", timeZone: "UTC" });
+  const calendarMonthOnlyFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, { month: "long", timeZone: "UTC" });
+  const calendarDateFormatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -231,7 +232,7 @@
     const seconds = Math.round((date.getTime() - Date.now()) / 1000);
     const absolute = Math.abs(seconds);
     if (absolute < 5) return "just now";
-    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    const formatter = new Intl.RelativeTimeFormat(DISPLAY_LOCALE, { numeric: "auto" });
     if (absolute < 60) return formatter.format(Math.round(seconds), "second");
     if (absolute < 3_600) return formatter.format(Math.round(seconds / 60), "minute");
     if (absolute < 86_400) return formatter.format(Math.round(seconds / 3_600), "hour");
@@ -317,7 +318,7 @@
     }
     element.dataset.relativeTime = date.toISOString();
     element.textContent = formatRelative(date);
-    element.title = date.toLocaleString();
+    element.title = date.toLocaleString(DISPLAY_LOCALE);
     if (element.tagName === "TIME") element.dateTime = date.toISOString();
   }
 
@@ -644,7 +645,7 @@
       const wrap = createElement("div", "day-bar-wrap");
       const level = total === null || total <= 0 ? 0 : Math.max(1, Math.round((total / maxDaily) * 20));
       const bar = createElement("div", `day-bar day-bar--${level}`);
-      bar.title = `${date ? date.toLocaleDateString() : cleanText(dateValue, "Unknown day")}: ${formatInteger(total)} tokens`;
+      bar.title = `${date ? date.toLocaleDateString(DISPLAY_LOCALE) : cleanText(dateValue, "Unknown day")}: ${formatInteger(total)} tokens`;
       wrap.append(bar);
       column.append(wrap, createElement("span", "day-label", date ? dayFormatter.format(date) : cleanText(dateValue, "—")));
       chart?.append(column);
@@ -658,7 +659,7 @@
       const start = parseDate(firstDefined(daily[0]?.date, daily[0]?.day, daily[0]?.timestamp));
       const endItem = daily[daily.length - 1];
       const end = parseDate(firstDefined(endItem?.date, endItem?.day, endItem?.timestamp));
-      setText("daily-range", start && end ? `${start.toLocaleDateString()} – ${end.toLocaleDateString()}` : "Recent days");
+      setText("daily-range", start && end ? `${start.toLocaleDateString(DISPLAY_LOCALE)} – ${end.toLocaleDateString(DISPLAY_LOCALE)}` : "Recent days");
     } else {
       setText("daily-range", "Recent days");
     }

@@ -114,6 +114,7 @@ OpenAI documents `CODEX_HOME`, `CODEX_SQLITE_HOME`, local session persistence, l
 - Daily token bars assign a thread's current total to its creation date; they are not billing or a precise daily consumption ledger.
 - Cached input and reasoning output are subsets and are not added on top of total tokens.
 - Reset timestamps are unofficial announcement times, not guaranteed reset-occurrence times.
+- Dates, relative times, and number abbreviations are formatted in English for deterministic screenshots and docs.
 - Model-and-thinking-level profiles describe the local tasks recorded in this Codex installation; they are not standardized quality or performance benchmarks.
 - Average tokens per task use the current recorded thread total. Average thread span is `updated - created` wall time and can include idle time.
 - Live Codex files can move, grow, archive, or disappear during a scan; Xedoc treats those races as normal.

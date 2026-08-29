@@ -28,6 +28,8 @@ import {
 import { buildResetCalendar } from "./reset-calendar.mjs";
 import { runFile, TtlCache } from "./utils.mjs";
 
+const DISPLAY_LOCALE = "en-US";
+
 const EMPTY_THREAD_OVERVIEW = {
   stats: { threads: null, currentThreads: null, archivedThreads: null, activeThreads: null, totalTokens: null },
   byModel: [],
@@ -263,7 +265,7 @@ export class CodexInspector {
     if (logs.errors24h > 0) {
       healthWarnings.push({
         level: "warning",
-        title: `${logs.errors24h.toLocaleString()} error log records in 24 hours`,
+        title: `${logs.errors24h.toLocaleString(DISPLAY_LOCALE)} error log records in 24 hours`,
         detail: "Only severity and target metadata are shown; log bodies remain private.",
       });
     }
