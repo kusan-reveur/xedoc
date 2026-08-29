@@ -2,6 +2,8 @@
 
 **Codex, in plain sight.** Xedoc is a private, local-only dashboard for inspecting the disk, process, token, timing, and health metadata that Codex leaves on your machine.
 
+![Xedoc interface preview](docs/xedoc-interface-preview.svg)
+
 ## What it shows
 
 - Codex/ChatGPT process count, OS-reported CPU, aggregate RSS, and uptime

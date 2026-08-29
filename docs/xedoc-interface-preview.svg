@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Xedoc dashboard interface preview</title>
+  <desc id="desc">A sanitized preview of the Xedoc local observability dashboard showing overview metrics, Codex runtime, token usage, reset calendar, and task storage.</desc>
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#fff6f8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#9f1239" flood-opacity=".10"/>
+    </filter>
+  </defs>
+  <rect width="1440" height="900" fill="#fffafa"/>
+  <rect x="0" y="0" width="244" height="900" fill="#fff"/>
+  <line x1="244" y1="0" x2="244" y2="900" stroke="#eadde1"/>
+  <g transform="translate(32 42)">
+    <rect width="42" height="42" rx="10" fill="#fff1f4" stroke="#f3bdca"/>
+    <circle cx="21" cy="21" r="11" fill="none" stroke="#c0264f" stroke-width="3"/>
+    <path d="M21 10v11h11" fill="none" stroke="#c0264f" stroke-width="3" stroke-linecap="round"/>
+    <text x="58" y="19" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="800" fill="#24151a">Xedoc</text>
+    <text x="58" y="39" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#87757b">Codex, in plain sight.</text>
+  </g>
+  <g font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700">
+    <rect x="20" y="150" width="204" height="46" rx="8" fill="#fff4f6" stroke="#d82757"/>
+    <text x="64" y="179" fill="#be123c">Overview</text>
+    <text x="64" y="233" fill="#76676d">Insights</text>
+    <text x="64" y="286" fill="#76676d">Agents</text>
+    <text x="64" y="339" fill="#76676d">Threads</text>
+    <text x="64" y="392" fill="#76676d">Storage</text>
+    <text x="64" y="445" fill="#76676d">Activity</text>
+  </g>
+  <g transform="translate(32 760)" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <circle cx="8" cy="8" r="4" fill="#059669"/>
+    <text x="20" y="13" font-size="14" font-weight="800" fill="#4a3c42">Local only</text>
+    <text x="0" y="41" font-size="12" fill="#8a7a80">Metadata is read-only and stays on this machine.</text>
+  </g>
+  <main>
+    <g transform="translate(300 72)" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+      <text x="0" y="0" font-size="12" font-weight="900" letter-spacing="3" fill="#be123c">LOCAL OBSERVABILITY</text>
+      <text x="0" y="38" font-size="34" font-weight="850" fill="#23171c">Overview</text>
+      <text x="0" y="64" font-size="15" fill="#7a6d72">A live view of Codex on this machine.</text>
+      <g transform="translate(1000 8)">
+        <rect width="72" height="32" rx="16" fill="#fff" stroke="#eadde1"/>
+        <circle cx="18" cy="16" r="5" fill="#059669"/>
+        <text x="31" y="21" font-size="13" font-weight="800" fill="#3f3338">Live</text>
+      </g>
+    </g>
+    <g transform="translate(300 154)" filter="url(#shadow)" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+      <rect width="1080" height="68" rx="8" fill="#f7fcfd" stroke="#c9e1e8"/>
+      <rect x="20" y="18" width="32" height="32" rx="8" fill="#e8f6f8"/>
+      <path d="M36 27l8 4v7c0 7-8 11-8 11s-8-4-8-11v-7z" fill="none" stroke="#0f8fa3" stroke-width="2"/>
+      <text x="68" y="29" font-size="15" font-weight="850" fill="#46383e">Private by design</text>
+      <text x="68" y="51" font-size="13" fill="#807177">Local Codex panels display metadata only. Prompt and response content is never required.</text>
+      <text x="980" y="42" font-size="13" font-weight="800" fill="#0f7282">Learn more</text>
+    </g>
+    <g transform="translate(300 250)" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+      <g>
+        <rect width="250" height="116" rx="8" fill="url(#card)" stroke="#eadde1"/>
+        <text x="20" y="34" font-size="13" font-weight="800" fill="#81747a">Threads</text>
+        <text x="20" y="78" font-size="36" font-weight="900" fill="#24151a">483</text>
+        <text x="20" y="100" font-size="13" fill="#8a7a80">4 updated in 15m</text>
+      </g>
+      <g transform="translate(276 0)">
+        <rect width="250" height="116" rx="8" fill="url(#card)" stroke="#eadde1"/>
+        <text x="20" y="34" font-size="13" font-weight="800" fill="#81747a">Token usage</text>
+        <text x="20" y="78" font-size="36" font-weight="900" fill="#24151a">157B</text>
+        <text x="20" y="100" font-size="13" fill="#8a7a80">Observed total</text>
+      </g>
+      <g transform="translate(552 0)">
+        <rect width="250" height="116" rx="8" fill="url(#card)" stroke="#eadde1"/>
+        <text x="20" y="34" font-size="13" font-weight="800" fill="#81747a">Storage</text>
+        <text x="20" y="78" font-size="36" font-weight="900" fill="#24151a">57.4 GB</text>
+        <text x="20" y="100" font-size="13" fill="#8a7a80">Known local footprint</text>
+      </g>
+      <g transform="translate(828 0)">
+        <rect width="250" height="116" rx="8" fill="url(#card)" stroke="#eadde1"/>
+        <text x="20" y="34" font-size="13" font-weight="800" fill="#81747a">Last 24 hours</text>
+        <text x="20" y="78" font-size="36" font-weight="900" fill="#24151a">122</text>
+        <text x="20" y="100" font-size="13" fill="#8a7a80">7 errors recorded</text>
+      </g>
+    </g>
+    <g transform="translate(300 394)" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+      <rect width="760" height="302" rx="8" fill="#fff" stroke="#eadde1"/>
+      <text x="20" y="36" font-size="12" font-weight="900" letter-spacing="3" fill="#be123c">SYSTEM</text>
+      <text x="20" y="66" font-size="20" font-weight="850" fill="#2b2025">Codex runtime</text>
+      <rect x="650" y="24" width="84" height="30" rx="15" fill="#ecfdf5" stroke="#bbf7d0"/>
+      <circle cx="670" cy="39" r="4" fill="#059669"/>
+      <text x="682" y="44" font-size="12" font-weight="800" fill="#047857">Observed</text>
+      <circle cx="72" cy="156" r="56" fill="#fff5f7" stroke="#f2ced7" stroke-width="10"/>
+      <text x="43" y="154" font-size="24" font-weight="900" fill="#2b2025">2.44 GB</text>
+      <text x="43" y="178" font-size="12" font-weight="800" fill="#a08f96">HOST RSS</text>
+      <line x1="190" y1="94" x2="190" y2="216" stroke="#eadde1"/>
+      <line x1="472" y1="94" x2="472" y2="216" stroke="#eadde1"/>
+      <text x="214" y="112" font-size="13" font-weight="800" fill="#8a7a80">CPU</text>
+      <text x="214" y="144" font-size="22" font-weight="850" fill="#3a2c32">13.9%</text>
+      <text x="214" y="180" font-size="13" font-weight="800" fill="#8a7a80">Codex worker RSS</text>
+      <text x="214" y="210" font-size="22" font-weight="850" fill="#3a2c32">636 MB</text>
+      <text x="502" y="112" font-size="13" font-weight="800" fill="#8a7a80">Processes</text>
+      <text x="502" y="144" font-size="22" font-weight="850" fill="#3a2c32">53</text>
+      <text x="502" y="180" font-size="13" font-weight="800" fill="#8a7a80">Longest uptime</text>
+      <text x="502" y="210" font-size="22" font-weight="850" fill="#3a2c32">1d 23h</text>
+      <rect x="20" y="242" width="720" height="40" rx="6" fill="#f4f8ff" stroke="#bfd7ff"/>
+      <text x="36" y="267" font-size="13" fill="#3465a4">Aggregate RSS can double-count shared memory; CPU is OS-reported.</text>
+    </g>
+    <g transform="translate(1084 394)" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+      <rect width="296" height="302" rx="8" fill="#fff" stroke="#eadde1"/>
+      <text x="20" y="36" font-size="12" font-weight="900" letter-spacing="3" fill="#be123c">RESETS</text>
+      <text x="20" y="66" font-size="20" font-weight="850" fill="#2b2025">Reset calendar</text>
+      <g transform="translate(22 98)" font-size="11" font-weight="800" fill="#9b8b92">
+        <text x="0" y="0">M</text><text x="38" y="0">T</text><text x="76" y="0">W</text><text x="114" y="0">T</text><text x="152" y="0">F</text><text x="190" y="0">S</text><text x="228" y="0">S</text>
+      </g>
+      <g transform="translate(18 112)">
+        <rect x="0" y="0" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="38" y="0" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="76" y="0" width="28" height="28" rx="6" fill="#be123c"/>
+        <rect x="114" y="0" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="152" y="0" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="190" y="0" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="228" y="0" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="0" y="38" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="38" y="38" width="28" height="28" rx="6" fill="#be123c"/>
+        <rect x="76" y="38" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="114" y="38" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="152" y="38" width="28" height="28" rx="6" fill="#be123c"/>
+        <rect x="190" y="38" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="228" y="38" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="0" y="76" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="38" y="76" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="76" y="76" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="114" y="76" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="152" y="76" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+        <rect x="190" y="76" width="28" height="28" rx="6" fill="#be123c"/>
+        <rect x="228" y="76" width="28" height="28" rx="6" fill="#fff6f8" stroke="#f3c3cf"/>
+      </g>
+      <text x="20" y="252" font-size="13" fill="#7a6d72">Past 30 days from the public reset feed</text>
+    </g>
+    <g transform="translate(300 724)" font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+      <rect width="1080" height="124" rx="8" fill="#fff" stroke="#eadde1"/>
+      <text x="20" y="34" font-size="12" font-weight="900" letter-spacing="3" fill="#be123c">STORAGE</text>
+      <text x="20" y="64" font-size="20" font-weight="850" fill="#2b2025">Largest task histories</text>
+      <text x="20" y="96" font-size="15" fill="#73666c">Find the local task history that is consuming disk, grouped with linked subagent histories.</text>
+      <text x="740" y="46" font-size="13" font-weight="900" fill="#8a7a80">TASKS</text>
+      <text x="870" y="46" font-size="13" font-weight="900" fill="#8a7a80">TOTAL SIZE</text>
+      <text x="1030" y="46" font-size="13" font-weight="900" fill="#8a7a80">UPDATED</text>
+      <text x="742" y="92" font-size="20" font-weight="850" fill="#30242a">115</text>
+      <text x="872" y="92" font-size="20" font-weight="850" fill="#30242a">124 GB</text>
+      <text x="1032" y="92" font-size="20" font-weight="850" fill="#30242a">12h</text>
+    </g>
+  </main>
+</svg>
